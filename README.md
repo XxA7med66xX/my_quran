@@ -7,7 +7,8 @@
 
   
   حجم صغير، خصوصية تامة، بحث سريع ولا يحتاج اتصال بالانترنت.
-  
+
+  ###  يضم روايتي حفص عن عاصم وورش عن نافع
   Lightweight. Fast search. No internet required. No analytics.
   
   <!-- BADGES -->
