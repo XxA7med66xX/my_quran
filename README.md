@@ -5,12 +5,6 @@
 
   #  My Quran | قرآني
 
-  
-  حجم صغير، خصوصية تامة، بحث سريع ولا يحتاج اتصال بالانترنت.
-
-  ###  يضم روايتي حفص عن عاصم وورش عن نافع
-  Lightweight. Fast search. No internet required. No analytics.
-  
   <!-- BADGES -->
   ![Version](https://img.shields.io/github/v/release/dmouayad/my_quran?style=flat&labelColor=CCE8E4&color=0F766E&label=Latest%20Version)
   [![Project's License](https://img.shields.io/github/license/dmouayad/my_quran?style=flat&labelColor=CCE8E4&color=0F766E)](./LICENSE)
@@ -28,6 +22,18 @@
   [<img src="assets/readme_assets/launch-PWA.svg" alt="Launch on WEB" width="24%" align="center">](https://dmouayad.github.io/my_quran/)
 
   </div>
+</div>
+
+---
+<div align="center">
+  
+  ###  يضم روايتي حفص عن عاصم وورش عن نافع
+  حجم صغير، خصوصية تامة، بحث سريع ولا يحتاج اتصال بالانترنت.
+
+  Lightweight. Fast search. No internet required. No analytics.
+  
+  Contains two readings: 'Hafs an Asm' and 'Warsh an Nafi' 
+  
 </div>
 
 ---
