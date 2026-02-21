@@ -1,6 +1,6 @@
 // GENERATED — DO NOT EDIT BY HAND
 // Run: dart run scripts/update_whats_new.dart
-// Version: 1.4.4 | Generated: 2026-02-21T14:55:24.162202
+// Version: 1.5.0 | Generated: 2026-02-21T15:42:12.670393
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class WhatsNewDialog extends StatelessWidget {
   const WhatsNewDialog({super.key});
 
-  static const String _currentVersion = '1.4.4';
+  static const String _currentVersion = '1.5.0';
   static const String _seenKey = 'whats_new_seen_version';
 
   static Future<void> showIfNeeded(BuildContext context) async {
@@ -77,8 +77,36 @@ class WhatsNewDialog extends StatelessWidget {
                   child: Column(
                     children: [
                       _VersionSection(
-                        version: '1.4.4',
+                        version: '1.5.0',
                         isCurrent: true,
+                        entries: [
+                          _ChangeEntry(
+                            text:
+                                'نظام علامات مرجعية جديد مع تصنيفات وألوان قابلة للتخصيص',
+                            icon: Icons.bookmarks,
+                            color: Colors.green,
+                          ),
+                          _ChangeEntry(
+                            text:
+                                'أرقام الآيات المحفوظة تظهر الآن بلون التصنيف مع تمييز الملاحظات',
+                            icon: Icons.edit_note,
+                            color: Colors.teal,
+                          ),
+                          _ChangeEntry(
+                            text: 'شاشة مخصصة لعرض وتصفية العلامات حسب التصنيف',
+                            icon: Icons.category,
+                            color: Colors.green,
+                          ),
+                          _ChangeEntry(
+                            text: 'إعادة تصميم قائمة الآية لتجربة أسرع وأبسط',
+                            icon: Icons.menu,
+                            color: Colors.blue,
+                          ),
+                        ],
+                      ),
+                      _VersionSection(
+                        version: '1.4.4',
+                        isCurrent: false,
                         entries: [
                           _ChangeEntry(
                             text:
@@ -465,13 +493,13 @@ class _VersionSection extends StatelessWidget {
         children: [
           for (final entry in entries)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 32,
-                    height: 32,
+                    width: 30,
+                    height: 30,
                     decoration: BoxDecoration(
                       color: entry.color.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
@@ -480,12 +508,9 @@ class _VersionSection extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        entry.text,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
+                    child: Text(
+                      entry.text,
+                      style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
                 ],
