@@ -6,7 +6,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:my_quran/app/font_size_controller.dart';
 import 'package:my_quran/app/models.dart';
 import 'package:my_quran/app/pages/home_page.dart';
-import 'package:my_quran/app/services/bookmark_service.dart';
 import 'package:my_quran/app/services/reading_position_service.dart';
 import 'package:my_quran/app/services/search_service.dart';
 import 'package:my_quran/app/services/settings_service.dart';
@@ -25,7 +24,6 @@ Future<void> main() async {
   unawaited(SearchService.init(settingsController.fontFamily.name));
 
   await Quran.initialize(fontFamily: settingsController.fontFamily);
-  await BookmarkService().initialize();
   await FontSizeController().initialize();
 
   final lastPosition = await ReadingPositionService.loadPosition();
@@ -50,6 +48,7 @@ class MyApp extends StatelessWidget {
   final ReadingPosition? lastPosition;
   final SettingsController settingsController;
   static const seedColor = Color(0xFF0F766E);
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -63,7 +62,7 @@ class MyApp extends StatelessWidget {
           themeMode: settingsController.themeMode,
           localizationsDelegates: GlobalMaterialLocalizations.delegates,
           darkTheme: ThemeData(
-            fontFamily: settingsController.fontFamily.name,
+            fontFamily: FontFamily.hafs.name,
             colorScheme: ColorScheme.fromSeed(
               brightness: Brightness.dark,
               surface: settingsController.useTrueBlackBgColor
@@ -73,7 +72,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
           theme: ThemeData(
-            fontFamily: settingsController.fontFamily.name,
+            fontFamily: FontFamily.hafs.name,
             colorScheme: ColorScheme.fromSeed(seedColor: seedColor),
           ),
           home: HomePage(
