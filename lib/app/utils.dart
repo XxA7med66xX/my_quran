@@ -50,16 +50,16 @@ extension AppThemeX on AppTheme {
 ) {
   return switch (theme) {
     AppTheme.light => (
-      bg: Theme.of(context).colorScheme.surface,
-      text: Theme.of(context).colorScheme.onSurface,
+      bg: const Color(0xFFf4fbf8),
+      text: const Color(0xFF161d1c),
     ),
     AppTheme.dark => (
-      bg: const Color(0xFF1C1B1F),
-      text: const Color(0xFFE6E1E5),
+      bg: const Color(0xFF0e1514),
+      text: const Color(0xFFdde4e2),
     ),
     AppTheme.classic => (
-      bg: const Color(0xFFFAFAFA),
-      text: const Color(0xFF212121),
+      bg: const Color(0xFFFFFFFF),
+      text: const Color(0xFF000000),
     ),
     AppTheme.amoled => (
       bg: const Color(0xFF000000),
@@ -70,4 +70,21 @@ extension AppThemeX on AppTheme {
       text: const Color(0xFF4E3524),
     ),
   };
+}
+
+extension HexColor on Color {
+  /// Converts this [Color] to a hexadecimal string in format #RRGGBB or #AARRGGBB.
+  /// Set `withAlpha` to `true` to include the alpha channel.
+  String toHex({bool withAlpha = false, bool leadingHashSign = true}) {
+    final int argb32 = toARGB32();
+    final String hex =
+        (withAlpha
+            ? (argb32 >> 24 & 0xFF).toRadixString(16).padLeft(2, '0')
+            : '') +
+        (argb32 >> 16 & 0xFF).toRadixString(16).padLeft(2, '0') +
+        (argb32 >> 8 & 0xFF).toRadixString(16).padLeft(2, '0') +
+        (argb32 & 0xFF).toRadixString(16).padLeft(2, '0');
+
+    return '${leadingHashSign ? '#' : ''}$hex';
+  }
 }
