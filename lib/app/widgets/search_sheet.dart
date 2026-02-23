@@ -76,6 +76,7 @@ class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
               autofocus: true,
               textAlign: TextAlign.right,
               textDirection: TextDirection.rtl,
+              style: const TextStyle(letterSpacing: 0),
               decoration: InputDecoration(
                 hintText: 'ابحث عن آية...',
                 prefixIcon: const Icon(Icons.search),
