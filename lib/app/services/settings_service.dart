@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_positional_boolean_parameters (ok for one param)
+
 import 'dart:async';
 import 'dart:ui' show FontWeight;
 
@@ -7,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsService {
   static const String _appThemeKey = 'app_theme';
+  static const String _trueBlackKey = 'true_black';
   final _prefs = SharedPreferencesAsync();
 
   Future<void> setLanguage(String language) async {
@@ -61,7 +64,6 @@ class SettingsService {
     return FontWeight.w500;
   }
 
-  // ignore: avoid_positional_boolean_parameters ()
   Future<void> setIsHorizontalScrolling(bool value) async {
     await _prefs.setBool('is_horizontal', value);
   }
@@ -74,7 +76,6 @@ class SettingsService {
     return await _prefs.getBool('keep_screen_on') ?? false;
   }
 
-  // ignore: avoid_positional_boolean_parameters ()
   Future<void> setKeepScreenOn(bool value) async {
     await _prefs.setBool('keep_screen_on', value);
   }
@@ -83,7 +84,7 @@ class SettingsService {
     final value = await _prefs.getString(_appThemeKey);
     return AppTheme.values.firstWhere(
       (e) => e.name == value,
-      orElse: () => AppTheme.light,
+      orElse: () => AppTheme.myQuran,
     );
   }
 
@@ -97,11 +98,33 @@ class SettingsService {
     final value = await _prefs.getString(_textAlignKey);
     return TextAlignOption.values.firstWhere(
       (e) => e.name == value,
-      orElse: () => TextAlignOption.auto,
+      orElse: () => TextAlignOption.justify,
     );
   }
 
+  static const String _themeModeKey = 'theme_mode';
   Future<void> setTextAlign(TextAlignOption align) async {
     await _prefs.setString(_textAlignKey, align.name);
+  }
+
+  Future<ThemeMode> loadThemeMode() async {
+    final value = await _prefs.getString(_themeModeKey);
+    return switch (value) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    await _prefs.setString(_themeModeKey, mode.name);
+  }
+
+  Future<void> setUseTrueBlackBgColor(bool value) async {
+    await _prefs.setBool(_trueBlackKey, value);
+  }
+
+  Future<bool> loadUseTrueBlackBgColor() async {
+    return await _prefs.getBool(_trueBlackKey) ?? false;
   }
 }
