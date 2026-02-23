@@ -83,6 +83,38 @@ class SettingsSheet extends StatelessWidget {
                 onChanged: (theme) => settingsController.appTheme = theme,
               ),
               const SizedBox(height: 16),
+
+              // ── TEXT ALIGNMENT ──
+              _buildSectionTitle('محاذاة النص'),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<TextAlignOption>(
+                  segments: const [
+                    ButtonSegment(
+                      value: TextAlignOption.auto,
+                      label: Text('تلقائي'),
+                    ),
+                    ButtonSegment(
+                      value: TextAlignOption.justify,
+                      label: Text('ضبط'),
+                    ),
+                    ButtonSegment(
+                      value: TextAlignOption.center,
+                      label: Text('وسط'),
+                    ),
+                    ButtonSegment(
+                      value: TextAlignOption.start,
+                      label: Text('يمين'),
+                    ),
+                  ],
+                  style: segmentStyle,
+                  selected: {settingsController.textAlign},
+                  onSelectionChanged: (newSet) {
+                    settingsController.textAlign = newSet.first;
+                  },
+                ),
+              ),
+              const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 16),
 

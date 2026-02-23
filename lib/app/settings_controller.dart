@@ -19,6 +19,7 @@ class SettingsController extends ChangeNotifier {
   AppTheme _appTheme = AppTheme.light;
   bool _isHorizontalScrolling = false;
   bool _keepScreenOn = true;
+  TextAlignOption _textAlign = TextAlignOption.auto;
 
   // ── Getters ──
 
@@ -29,6 +30,7 @@ class SettingsController extends ChangeNotifier {
   String get language => _language;
   FontFamily get fontFamily => _fontFamily;
   FontWeight get fontWeight => _fontWeight;
+  TextAlignOption get textAlign => _textAlign;
 
   // Backward compat: some code checks this
   bool get useTrueBlackBgColor => _appTheme == AppTheme.amoled;
@@ -68,6 +70,11 @@ class SettingsController extends ChangeNotifier {
     settingsService.setFontWeight(value);
   }
 
+  set textAlign(TextAlignOption value) {
+    _textAlign = value;
+    notifyListeners();
+    settingsService.setTextAlign(value);
+  }
   // ── Actions ──
 
   /// Quick toggle: light↔dark. Returns false if theme needs picker.
@@ -102,6 +109,8 @@ class SettingsController extends ChangeNotifier {
     _fontWeight = await settingsService.loadFontWeight();
     _isHorizontalScrolling = await settingsService.loadIsHorizontalScroling();
     _keepScreenOn = await settingsService.loadKeepScreenOn();
+    _textAlign = await settingsService.loadTextAlign();
+
     unawaited(_applyWakelock());
 
     debugPrint('✅ Loaded settings');

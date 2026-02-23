@@ -90,4 +90,18 @@ class SettingsService {
   Future<void> setAppTheme(AppTheme theme) async {
     await _prefs.setString(_appThemeKey, theme.name);
   }
+
+  static const String _textAlignKey = 'text_align';
+
+  Future<TextAlignOption> loadTextAlign() async {
+    final value = await _prefs.getString(_textAlignKey);
+    return TextAlignOption.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => TextAlignOption.auto,
+    );
+  }
+
+  Future<void> setTextAlign(TextAlignOption align) async {
+    await _prefs.setString(_textAlignKey, align.name);
+  }
 }

@@ -878,10 +878,31 @@ class _SurahTextBlockState extends State<_SurahTextBlock> {
   }
 
   TextAlign _calculateAlignment() {
-    if (Quran.instance.getVerseCount(widget.surahNumber) <= 20) {
-      return TextAlign.center;
+    return switch (widget.settingsController.textAlign) {
+      TextAlignOption.center => TextAlign.center,
+      TextAlignOption.start => TextAlign.start,
+      TextAlignOption.justify => TextAlign.justify,
+      TextAlignOption.auto => _autoAlignment(),
+    };
+  }
+
+  TextAlign _autoAlignment() {
+    final verseCount = Quran.instance.getVerseCount(widget.surahNumber);
+
+    // Short surahs: center
+    if (verseCount <= 20) return TextAlign.center;
+
+    // Large font: center (few words per line)
+    if (widget.fontSize > 34) return TextAlign.center;
+
+    // Few words in block: center (avoids ugly justify gaps)
+    int totalWords = 0;
+    for (final seg in widget.block.segments) {
+      totalWords += seg.text.split(' ').length;
     }
-    return widget.fontSize > 34 ? TextAlign.center : TextAlign.justify;
+    if (totalWords < 15) return TextAlign.center;
+
+    return TextAlign.justify;
   }
 
   @override

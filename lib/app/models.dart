@@ -218,3 +218,10 @@ enum AppTheme {
   amoled, // أسود — white on pure black
   sepia, // سيبيا — brown on beige
 }
+
+enum TextAlignOption {
+  justify, // ضبط
+  center, // توسيط
+  start, // محاذاة لليمين
+  auto, // تلقائي (smart rules)
+}
