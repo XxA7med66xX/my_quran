@@ -308,7 +308,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                           Text(
                             'سورة $surahName',
                             style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.bold),
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -394,9 +397,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.applyOpacity(
-                      0.5,
-                    ),
+                    color: context.colorScheme.surface,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -404,7 +405,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       height: 1.8,
-                      color: colorScheme.onSurface,
+                      color: context.colorScheme.onSurface,
                       fontFamily: widget.settingsController.fontFamily.name,
                     ),
                     textAlign: TextAlign.center,
@@ -419,7 +420,6 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                     vertical: (bookmark.note?.isEmpty ?? true) ? 0 : 3,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.tertiaryContainer.applyOpacity(0.3),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
