@@ -87,6 +87,7 @@ class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
                           _controller.clear();
                           _onSearchChanged('');
                         },
+                        onLongPress: () {},
                       )
                     : null,
                 border: OutlineInputBorder(
@@ -363,6 +364,7 @@ class _HighlightedText extends StatelessWidget {
           height: 1.8,
           fontWeight: isWarsh ? FontWeight.w500 : null,
           fontFamily: verseFontFamily.name,
+          letterSpacing: 0,
         ),
         children: [
           if (showStartEllipsis)
