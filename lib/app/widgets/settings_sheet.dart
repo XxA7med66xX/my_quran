@@ -258,6 +258,29 @@ class SettingsSheet extends StatelessWidget {
                       value: settingsController.keepScreenOn,
                       onChanged: (_) => settingsController.toggleKeepScreenOn(),
                     ),
+                    const _ThinDivider(),
+                    _ToggleRow(
+                      icon: Icons.numbers_outlined,
+                      title: 'عرض رقم الحزب',
+                      subtitle:
+                          'يظهر رقم الحزب بدلاً من رقم الجزء في الشريط المُثبت.',
+                      value: !settingsController.hizbDisplay.isHidden,
+                      onChanged: (displayed) =>
+                          settingsController.hizbDisplay = displayed
+                          ? HizbDisplay.replaceJuzWithQuarter
+                          : HizbDisplay.hidden,
+                    ),
+                    _ToggleRow(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                      enabled: !settingsController.hizbDisplay.isHidden,
+                      icon: Icons.hide_source,
+                      title: 'إخفاء رقم الربع',
+                      value: !settingsController.hizbDisplay.withQuarter,
+                      onChanged: (hidden) =>
+                          settingsController.hizbDisplay = hidden
+                          ? HizbDisplay.replaceJuz
+                          : HizbDisplay.replaceJuzWithQuarter,
+                    ),
                   ],
                 ),
               ],
@@ -483,62 +506,79 @@ class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.value,
     required this.onChanged,
+    this.enabled = true,
+    this.subtitle,
+    this.padding,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
+  final String? subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool enabled;
+  final EdgeInsets? padding;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: value ? colorScheme.primary : colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+    return DefaultTextStyle(
+      style: TextStyle(
+        color: enabled ? context.colorScheme.onSurface : Colors.black26,
+      ),
+      child: InkWell(
+        onTap: !enabled ? null : () => onChanged(!value),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding:
+              padding ??
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: !enabled
+                    ? Colors.black26
+                    : value
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
               ),
-            ),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Switch(
+                value: enabled && value,
+                onChanged: enabled ? onChanged : null,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
+          ),
         ),
       ),
     );

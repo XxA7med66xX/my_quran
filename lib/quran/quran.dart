@@ -6,6 +6,7 @@ import 'dart:convert' show json;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:my_quran/app/models.dart';
+import 'package:my_quran/quran/data/hizb_data.dart';
 
 import 'package:my_quran/quran/data/juz_data.dart';
 import 'package:my_quran/quran/data/page_data.dart';
@@ -347,4 +348,41 @@ class Quran {
   ///Takes [surahNumber] & [verseNumber] and returns true if verse is sajdah
   bool isSajdahVerse(int surahNumber, int verseNumber) =>
       sajdahVerses[surahNumber] == verseNumber;
+
+  /// Returns hizb number (1-60) for given surah and verse.
+  int getHizbNumber(int surah, int verse) {
+    final quarterIndex = _getQuarterIndex(surah, verse);
+    return (quarterIndex ~/ 4) + 1;
+  }
+
+  /// Returns quarter within the hizb (1-4).
+  int getHizbQuarter(int surah, int verse) {
+    final quarterIndex = _getQuarterIndex(surah, verse);
+    return (quarterIndex % 4) + 1;
+  }
+
+  /// Returns true if this verse starts a hizb quarter.
+  bool isHizbQuarterStart(int surah, int verse) {
+    return hizbQuarterStarts.any((e) => e.$1 == surah && e.$2 == verse);
+  }
+
+  /// Hizb quarter index (0-239) for binary search.
+  int _getQuarterIndex(int surah, int verse) {
+    int result = 0;
+    for (int i = hizbQuarterStarts.length - 1; i >= 0; i--) {
+      final (s, v) = hizbQuarterStarts[i];
+      if (surah > s || (surah == s && verse >= v)) {
+        result = i;
+        break;
+      }
+    }
+    return result;
+  }
+
+  /// Returns the (surah, verse) that starts the given hizb and quarter.
+  /// [hizb] is 1-60, [quarter] is 1-4 (1=hizb start, 2=¼, 3=½, 4=¾)
+  (int surah, int verse) getHizbQuarterStart(int hizb, {int quarter = 1}) {
+    final index = ((hizb - 1) * 4) + (quarter - 1);
+    return hizbQuarterStarts[index.clamp(0, hizbQuarterStarts.length - 1)];
+  }
 }
