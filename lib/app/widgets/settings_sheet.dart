@@ -263,7 +263,8 @@ class SettingsSheet extends StatelessWidget {
                       icon: Icons.numbers_outlined,
                       title: 'عرض رقم الحزب',
                       subtitle:
-                          'يظهر رقم الحزب بدلاً من رقم الجزء في الشريط المُثبت.',
+                          'يظهر رقم الحزب بدلاً من '
+                          'رقم الجزء في الشريط المُثبت.',
                       value: !settingsController.hizbDisplay.isHidden,
                       onChanged: (displayed) =>
                           settingsController.hizbDisplay = displayed
