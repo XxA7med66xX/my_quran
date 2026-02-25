@@ -212,16 +212,12 @@ enum FontFamily {
 }
 
 enum AppTheme {
-  light, // فاتح — Material light
-  dark, // داكن — Material dark
-  classic, // كلاسيكي — black on white
-  amoled, // أسود — white on pure black
-  sepia, // سيبيا — brown on beige
+  myQuran,
+  dynamic, // device Material You
 }
 
 enum TextAlignOption {
   justify, // ضبط
   center, // توسيط
   start, // محاذاة لليمين
-  auto, // تلقائي (smart rules)
 }

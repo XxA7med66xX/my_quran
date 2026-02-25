@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:my_quran/app/pages/bookmarks_screen.dart';
 import 'package:my_quran/app/services/bookmark_service.dart';
 import 'package:my_quran/app/widgets/settings_sheet.dart';
-import 'package:my_quran/app/widgets/theme_picker_dialog.dart';
+import 'package:my_quran/app/widgets/theme_tiles_picker.dart';
 import 'package:my_quran/app/widgets/whats_new_dialog.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -228,8 +228,45 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _showThemePicker(BuildContext context) {
     showDialog(
       context: context,
-      builder: (ctx) =>
-          ThemePickerDialog(settingsController: widget.settingsController),
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'المظهر',
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListenableBuilder(
+                  listenable: widget.settingsController,
+                  builder: (context, _) {
+                    return ThemeTilesPicker(
+                      selected: widget.settingsController.appTheme,
+                      onChanged: (theme) {
+                        widget.settingsController.appTheme = theme;
+                        Navigator.pop(ctx);
+                      },
+                      supportsDynamic:
+                          widget.settingsController.supportsDynamicColor,
+                      deviceLightScheme:
+                          widget.settingsController.deviceLightScheme,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -257,6 +294,10 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
+      backgroundColor:
+          isDarkMode && widget.settingsController.useTrueBlackBgColor
+          ? Colors.black
+          : null,
       floatingActionButton: FloatingActionButton(
         backgroundColor: context.colorScheme.surfaceContainer,
         foregroundColor: context.colorScheme.primary,
@@ -348,19 +389,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         flexibleSpace: Container(decoration: appBarDecoration),
         actions: [
           IconButton(
-            onPressed: () {
-              final toggled = widget.settingsController.toggleTheme();
-              if (!toggled) {
-                _showThemePicker(context);
-              }
-            },
+            onPressed: () => widget.settingsController.toggleThemeMode(),
             onLongPress: () => _showThemePicker(context),
-            icon: Icon(switch (widget.settingsController.appTheme) {
-              AppTheme.light => Icons.light_mode_outlined,
-              AppTheme.dark => Icons.dark_mode_outlined,
-              AppTheme.classic => Icons.contrast,
-              AppTheme.amoled => Icons.brightness_2_outlined,
-              AppTheme.sepia => Icons.auto_stories_outlined,
+            icon: Icon(switch (widget.settingsController.themeMode) {
+              ThemeMode.light => Icons.light_mode_outlined,
+              ThemeMode.dark => Icons.dark_mode_outlined,
+              ThemeMode.system => Icons.brightness_auto_outlined,
             }),
           ),
           IconButton(
@@ -369,7 +403,12 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               showModalBottomSheet(
                 context: context,
                 showDragHandle: false,
+                isScrollControlled: true,
                 barrierColor: Colors.transparent,
+
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * .6,
+                ),
                 builder: (context) {
                   final fontController = FontSizeController();
 
@@ -538,6 +577,7 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
         builder: (_) => Dialog(
           child: VerseMenuDialog(
             surah: surah,
+            fontFamily: widget.settingsController.fontFamily,
             verse: (
               number: verseNumber,
               text: Quran.instance.getVerse(surah, verseNumber),
@@ -642,7 +682,7 @@ class _SurahHeader extends StatelessWidget {
       child: DefaultTextStyle(
         style: TextStyle(
           color: context.colorScheme.onSecondaryContainer,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           fontFamily: fontFamily.name,
           letterSpacing: 0,
         ),
@@ -665,7 +705,7 @@ class _SurahHeader extends StatelessWidget {
             Text(
               'سورة ${Quran.instance.getSurahNameArabic(surah.surahNumber)}',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: fontSize, height: 1),
+              style: TextStyle(fontSize: fontSize, height: 1.2),
             ),
             Wrap(
               spacing: 5,
@@ -878,15 +918,6 @@ class _SurahTextBlockState extends State<_SurahTextBlock> {
   }
 
   TextAlign _calculateAlignment() {
-    return switch (widget.settingsController.textAlign) {
-      TextAlignOption.center => TextAlign.center,
-      TextAlignOption.start => TextAlign.start,
-      TextAlignOption.justify => TextAlign.justify,
-      TextAlignOption.auto => _autoAlignment(),
-    };
-  }
-
-  TextAlign _autoAlignment() {
     final verseCount = Quran.instance.getVerseCount(widget.surahNumber);
 
     // Short surahs: center
@@ -895,14 +926,11 @@ class _SurahTextBlockState extends State<_SurahTextBlock> {
     // Large font: center (few words per line)
     if (widget.fontSize > 34) return TextAlign.center;
 
-    // Few words in block: center (avoids ugly justify gaps)
-    int totalWords = 0;
-    for (final seg in widget.block.segments) {
-      totalWords += seg.text.split(' ').length;
-    }
-    if (totalWords < 15) return TextAlign.center;
-
-    return TextAlign.justify;
+    return switch (widget.settingsController.textAlign) {
+      TextAlignOption.center => TextAlign.center,
+      TextAlignOption.start => TextAlign.start,
+      TextAlignOption.justify => TextAlign.justify,
+    };
   }
 
   @override
