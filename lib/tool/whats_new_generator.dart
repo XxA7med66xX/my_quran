@@ -1,5 +1,3 @@
-// scripts/update_whats_new.dart
-
 // ignore_for_file: avoid_print ()
 
 import 'dart:io';
@@ -38,9 +36,11 @@ void main() {
   print('📝 Found ${allVersions.length} version(s):');
   for (final v in allVersions) {
     final tag = v.isCurrent ? ' ← current' : '';
+    final total = v.entries.length;
+    final grouped = _groupByCategory(v.entries);
+    final groupsCount = grouped.keys.length;
     print(
-      '   v${v.version} (build ${v.buildNumber}, '
-      '${v.entries.length} entries)$tag',
+      '   v${v.version} (build ${v.buildNumber}, $total entries, $groupsCount groups)$tag',
     );
   }
 
@@ -123,6 +123,191 @@ void _writeVersionMap(String root, Map<int, String> map) {
 }
 
 // ─────────────────────────────────────────────────────────
+// Categories (icon+color belong to category)
+// ─────────────────────────────────────────────────────────
+
+class _CategoryDef {
+  const _CategoryDef({
+    required this.id,
+    required this.titleAr,
+    required this.icon,
+    required this.color,
+    required this.keywords,
+  });
+
+  final String id;
+  final String titleAr; // dialog is RTL/Arabic in your generated file
+  final String icon; // Dart code string e.g. Icons.bug_report
+  final String color; // Dart code string e.g. Colors.red
+  final List<String> keywords;
+}
+
+const _categories = <_CategoryDef>[
+  _CategoryDef(
+    id: 'fix',
+    titleAr: 'الإصلاحات',
+    icon: 'Icons.bug_report',
+    color: 'Colors.red',
+    keywords: ['fix', 'bug', 'crash', 'إصلاح', 'مشكلة', 'عطل'],
+  ),
+  _CategoryDef(
+    id: 'feature',
+    titleAr: 'ميزات جديدة',
+    icon: 'Icons.new_releases',
+    color: 'Colors.green',
+    keywords: [
+      // EN
+      'new feature',
+      'feature',
+      'added',
+      'add ',
+      'introduc', // matches introduce/introduced/introducing
+      'now supports',
+      'support for',
+      'enable',
+      // AR
+      'ميزة',
+      'ميزات',
+      'ميزة جديدة',
+      'جديد',
+      'جديدة',
+      'تمت إضافة',
+      'إضافة',
+      'يدعم',
+      'دعم',
+      'إتاحة',
+    ],
+  ),
+  _CategoryDef(
+    id: 'performance',
+    titleAr: 'الأداء',
+    icon: 'Icons.speed',
+    color: 'Colors.indigo',
+    keywords: ['performance', 'speed', 'أداء', 'سرعة', 'بطء'],
+  ),
+  _CategoryDef(
+    id: 'improvement',
+    titleAr: 'التحسينات',
+    icon: 'Icons.trending_up',
+    color: 'Colors.blue',
+    keywords: ['improve', 'improvement', 'enhance', 'تحسين', 'تطوير'],
+  ),
+  _CategoryDef(
+    id: 'search',
+    titleAr: 'البحث',
+    icon: 'Icons.search',
+    color: 'Colors.blueGrey',
+    keywords: ['search', 'query', 'بحث', 'استعلام'],
+  ),
+  _CategoryDef(
+    id: 'ui',
+    titleAr: 'واجهة المستخدم',
+    icon: 'Icons.palette',
+    color: 'Colors.purple',
+    keywords: ['theme', 'dark', 'ui', 'مظهر', 'سمة', 'واجهة', 'screen', 'شاشة'],
+  ),
+  _CategoryDef(
+    id: 'bookmark',
+    titleAr: 'العلامات',
+    icon: 'Icons.bookmarks',
+    color: 'Colors.orange',
+    keywords: ['bookmark', 'bookmarks', 'علامة', 'مرجعية'],
+  ),
+  _CategoryDef(
+    id: 'note',
+    titleAr: 'الملاحظات',
+    icon: 'Icons.edit_note',
+    color: 'Colors.teal',
+    keywords: ['note', 'notes', 'ملاحظ', 'ملاحظة', 'ملاحظات'],
+  ),
+  _CategoryDef(
+    id: 'other',
+    titleAr: 'أخرى',
+    icon: 'Icons.auto_awesome',
+    color: 'Colors.blueGrey',
+    keywords: [],
+  ),
+  _CategoryDef(
+    id: 'text',
+    titleAr: 'النص والخطوط',
+    icon: 'Icons.text_fields',
+    color: 'Colors.deepOrange',
+    keywords: [
+      'font',
+      'text',
+      'glyph',
+      'mushaf',
+      'render',
+      'warsh',
+      'hafs',
+      'خط',
+      'نص',
+      'مصحف',
+      'رسم',
+      'ورش',
+      'حفص',
+    ],
+  ),
+];
+
+const _categoryOrder = <String>[
+  'fix',
+  'feature',
+  'performance',
+  'improvement',
+  'search',
+  'ui',
+  'bookmark',
+  'note',
+  'other',
+];
+
+_CategoryDef _categoryById(String id) =>
+    _categories.firstWhere((c) => c.id == id, orElse: () => _categories.last);
+
+// (#3) Normalize before keyword matching
+String _normalizeForGuessing(String s) {
+  var normalized = s.toLowerCase();
+
+  // Remove common Arabic diacritics (plus dagger alif)
+  normalized = s.replaceAll(RegExp(r'[\u064B-\u065F\u0670]'), '');
+
+  // Remove Quran annotation marks just in case
+  normalized = s.replaceAll(RegExp(r'[\u06D6-\u06ED\u08D3-\u08FF\u06DD]'), '');
+
+  // Fold some Arabic variants for matching
+  normalized = s
+      .replaceAll(RegExp('[أإآٱ]'), 'ا')
+      .replaceAll('ى', 'ي')
+      .replaceAll('ة', 'ه');
+
+  // Replace punctuation/symbols with spaces
+  normalized = s.replaceAll(RegExp(r'[^a-z0-9\u0600-\u06FF\s]+'), ' ');
+
+  // Collapse whitespace
+  normalized = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  return normalized;
+}
+
+String _guessCategoryId(String text) {
+  final norm = _normalizeForGuessing(text);
+  for (final c in _categories) {
+    if (c.keywords.any(norm.contains)) return c.id;
+  }
+  return 'other';
+}
+
+Map<String, List<_ChangelogEntry>> _groupByCategory(
+  List<_ChangelogEntry> items,
+) {
+  final map = <String, List<_ChangelogEntry>>{};
+  for (final e in items) {
+    map.putIfAbsent(e.categoryId, () => []).add(e);
+  }
+  return map;
+}
+
+// ─────────────────────────────────────────────────────────
 // Changelog reading
 // ─────────────────────────────────────────────────────────
 
@@ -175,6 +360,8 @@ List<_VersionChangelog> _readAllChangelogs(
     final isCurrent = buildNum == currentBuild;
     final version = versionMap[buildNum] ?? buildNum.toString();
 
+    _warnChangelogQuality(buildNum, version, entries);
+
     versions.add(
       _VersionChangelog(
         version: version,
@@ -185,11 +372,13 @@ List<_VersionChangelog> _readAllChangelogs(
     );
   }
 
+  // Deterministic safety (#1)
+  versions.sort((a, b) => b.buildNumber.compareTo(a.buildNumber));
+
   // Safety: if nothing matched as current, mark first
   if (versions.isNotEmpty && !versions.any((v) => v.isCurrent)) {
     print(
-      '⚠️  No build matched current ($currentBuild). '
-      'Marking newest as current.',
+      '⚠️  No build matched current ($currentBuild). Marking newest as current.',
     );
     final first = versions.first;
     versions[0] = _VersionChangelog(
@@ -220,11 +409,7 @@ List<_ChangelogEntry> _parseChangelog(String content) {
     final text = bulletMatch?.group(1)?.trim() ?? line;
 
     entries.add(
-      _ChangelogEntry(
-        text: text,
-        icon: _guessIcon(text),
-        color: _guessColor(text),
-      ),
+      _ChangelogEntry(text: text, categoryId: _guessCategoryId(text)),
     );
   }
 
@@ -232,49 +417,52 @@ List<_ChangelogEntry> _parseChangelog(String content) {
 }
 
 // ─────────────────────────────────────────────────────────
-// Icon / color detection
+// Warnings / quality checks (#7)
 // ─────────────────────────────────────────────────────────
 
-String _guessIcon(String text) {
-  final lower = text.toLowerCase();
-  for (final entry in _iconMap.entries) {
-    if (entry.key.any(lower.contains)) return entry.value;
+void _warnChangelogQuality(
+  int buildNum,
+  String version,
+  List<_ChangelogEntry> entries,
+) {
+  if (entries.isEmpty) return;
+
+  // Long line warning
+  const maxLen = 140;
+  for (final e in entries) {
+    if (e.text.length > maxLen) {
+      final preview = e.text.substring(0, maxLen);
+      print(
+        '⚠️  Long changelog line (v$version build $buildNum, ${e.text.length} chars): "$preview..."',
+      );
+      break;
+    }
   }
-  return 'Icons.auto_awesome';
-}
 
-String _guessColor(String text) {
-  final lower = text.toLowerCase();
-  for (final entry in _colorMap.entries) {
-    if (entry.key.any(lower.contains)) return entry.value;
+  // Duplicate warning
+  final seen = <String>{};
+  final dups = <String>[];
+  for (final e in entries) {
+    final key = e.text.trim();
+    if (!seen.add(key)) dups.add(key);
   }
-  return 'Colors.blue';
+  if (dups.isNotEmpty) {
+    print(
+      '⚠️  Duplicate changelog entries (v$version build $buildNum): ${dups.take(3).toList()}'
+      '${dups.length > 3 ? ' (+${dups.length - 3} more)' : ''}',
+    );
+  }
+
+  // Too many "other" warning (signals weak keyword set)
+  final otherCount = entries.where((e) => e.categoryId == 'other').length;
+  final ratio = otherCount / entries.length;
+  if (ratio >= 0.7) {
+    print(
+      '⚠️  Many entries fell into category "other" for v$version build $buildNum '
+      '($otherCount/${entries.length}). Consider expanding category keywords.',
+    );
+  }
 }
-
-const _iconMap = <List<String>, String>{
-  ['bookmark', 'علامة', 'مرجعية']: 'Icons.bookmarks',
-  ['note', 'ملاحظ']: 'Icons.edit_note',
-  ['search', 'بحث']: 'Icons.search',
-  ['font', 'خط']: 'Icons.text_fields',
-  ['theme', 'dark', 'مظهر', 'سمة']: 'Icons.palette',
-  ['performance', 'speed', 'أداء', 'سرعة']: 'Icons.speed',
-  ['fix', 'bug', 'إصلاح']: 'Icons.bug_report',
-  ['indicator', 'visual', 'مؤشر', 'بصري']: 'Icons.visibility',
-  ['categor', 'تصنيف']: 'Icons.category',
-  ['improve', 'تحسين']: 'Icons.trending_up',
-  ['screen', 'شاشة']: 'Icons.phone_android',
-  ['menu', 'قائمة']: 'Icons.menu',
-};
-
-const _colorMap = <List<String>, String>{
-  ['fix', 'bug', 'إصلاح']: 'Colors.red',
-  ['improve', 'performance', 'تحسين', 'أداء']: 'Colors.blue',
-  ['note', 'ملاحظ']: 'Colors.teal',
-  ['bookmark', 'علامة']: 'Colors.orange',
-  ['indicator', 'visual', 'مؤشر']: 'Colors.purple',
-  ['categor', 'تصنيف']: 'Colors.green',
-  ['screen', 'شاشة']: 'Colors.indigo',
-};
 
 // ─────────────────────────────────────────────────────────
 // Code generation
@@ -287,7 +475,17 @@ bool _updateDialogFile(
 ) {
   final filePath = '$root/lib/app/widgets/whats_new_dialog.dart';
   final content = _generateDialogCode(currentVersion, allVersions);
-  File(filePath).writeAsStringSync(content);
+
+  final file = File(filePath);
+  final old = file.existsSync() ? file.readAsStringSync() : null;
+
+  // Deterministic + avoid rewriting when unchanged (#1)
+  if (old == content) {
+    print('ℹ️  whats_new_dialog.dart unchanged');
+    return true;
+  }
+
+  file.writeAsStringSync(content);
   return true;
 }
 
@@ -298,6 +496,9 @@ String _generateDialogCode(
   final versionWidgets = StringBuffer();
 
   for (final ver in allVersions) {
+    // Group entries by category
+    final grouped = _groupByCategory(ver.entries);
+
     versionWidgets.writeln('                      _VersionSection(');
     versionWidgets.writeln(
       "                        version: '${_esc(ver.version)}',",
@@ -305,20 +506,35 @@ String _generateDialogCode(
     versionWidgets.writeln(
       '                        isCurrent: ${ver.isCurrent},',
     );
-    versionWidgets.writeln('                        entries: [');
-    for (final entry in ver.entries) {
-      versionWidgets.writeln('                          _ChangeEntry(');
+
+    versionWidgets.writeln('                        categories: [');
+
+    for (final catId in _categoryOrder) {
+      final items = grouped[catId];
+      if (items == null || items.isEmpty) continue;
+
+      final def = _categoryById(catId);
+
+      versionWidgets.writeln('                          _CategorySection(');
       versionWidgets.writeln(
-        "                            text: '${_esc(entry.text)}',",
+        "                            title: '${_esc(def.titleAr)}',",
       );
+      versionWidgets.writeln('                            icon: ${def.icon},');
       versionWidgets.writeln(
-        '                            icon: ${entry.icon},',
+        '                            color: ${def.color},',
       );
-      versionWidgets.writeln(
-        '                            color: ${entry.color},',
-      );
+      versionWidgets.writeln('                            items: [');
+
+      for (final item in items) {
+        versionWidgets.writeln(
+          "                              '${_esc(item.text)}',",
+        );
+      }
+
+      versionWidgets.writeln('                            ],');
       versionWidgets.writeln('                          ),');
     }
+
     versionWidgets.writeln('                        ],');
     versionWidgets.writeln('                      ),');
   }
@@ -326,7 +542,7 @@ String _generateDialogCode(
   return '''
 // GENERATED — DO NOT EDIT BY HAND
 // Run: dart run scripts/update_whats_new.dart
-// Version: $currentVersion | Generated: ${DateTime.now().toIso8601String()}
+// Version: $currentVersion
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -433,12 +649,12 @@ class _VersionSection extends StatelessWidget {
   const _VersionSection({
     required this.version,
     required this.isCurrent,
-    required this.entries,
+    required this.categories,
   });
 
   final String version;
   final bool isCurrent;
-  final List<_ChangeEntry> entries;
+  final List<_CategorySection> categories;
 
   @override
   Widget build(BuildContext context) {
@@ -488,26 +704,67 @@ class _VersionSection extends StatelessWidget {
           ],
         ),
         children: [
-          for (final entry in entries)
+          for (final cat in categories) cat,
+        ],
+      ),
+    );
+  }
+}
+
+class _CategorySection extends StatelessWidget {
+  const _CategorySection({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 18, color: color),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final t in items)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.only(bottom: 8, right: 6),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: entry.color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(entry.icon, size: 18, color: entry.color),
-                  ),
-                  const SizedBox(width: 10),
+                  Text('• ', style: textTheme.bodyMedium),
                   Expanded(
                     child: Text(
-                      entry.text,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      t,
+                      style: textTheme.bodyMedium,
                     ),
                   ),
                 ],
@@ -517,18 +774,6 @@ class _VersionSection extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ChangeEntry {
-  const _ChangeEntry({
-    required this.text,
-    required this.icon,
-    required this.color,
-  });
-
-  final String text;
-  final IconData icon;
-  final Color color;
 }
 ''';
 }
@@ -546,15 +791,10 @@ String _esc(String s) {
 // ─────────────────────────────────────────────────────────
 
 class _ChangelogEntry {
-  const _ChangelogEntry({
-    required this.text,
-    required this.icon,
-    required this.color,
-  });
+  const _ChangelogEntry({required this.text, required this.categoryId});
 
   final String text;
-  final String icon;
-  final String color;
+  final String categoryId;
 }
 
 class _VersionChangelog {
