@@ -85,18 +85,6 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final ValueNotifier<int> bookmarkRevision = ValueNotifier(0);
   bool _isLandscape = false;
   bool _showHeader = true;
-  @override
-  void dispose() {
-    _highlightedVerseNotifier.dispose();
-    _pageController.dispose();
-    ReadingPositionService.savePosition(_currentPositionNotifier.value);
-    _itemPositionsListener.itemPositions.removeListener(_onScrollUpdate);
-    WidgetsBinding.instance.removeObserver(this);
-    _currentPositionNotifier.dispose();
-    Quran.data.removeListener(_onQuranDataChanged);
-    widget.settingsController.removeListener(_onScrollingModeChanged);
-    super.dispose();
-  }
 
   void _onScrollingModeChanged() {
     final newIsHorizontalScrolling =
@@ -275,19 +263,52 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateSystemUI();
+  }
+
+  void _updateSystemUI() {
+    if (_isLandscape) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Restore system UI when leaving the screen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _highlightedVerseNotifier.dispose();
+    _pageController.dispose();
+    ReadingPositionService.savePosition(_currentPositionNotifier.value);
+    _itemPositionsListener.itemPositions.removeListener(_onScrollUpdate);
+    WidgetsBinding.instance.removeObserver(this);
+    _currentPositionNotifier.dispose();
+    Quran.data.removeListener(_onQuranDataChanged);
+    widget.settingsController.removeListener(_onScrollingModeChanged);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // 1. Calculate Heights
     final double statusBarHeight = MediaQuery.of(context).padding.top;
     const double appBarHeight = kToolbarHeight;
     const double infoHeaderHeight = 35;
 
-    _isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-
+    final newIsLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    if (newIsLandscape != _isLandscape) {
+      _isLandscape = newIsLandscape;
+      _updateSystemUI();
+    }
     double totalTopHeaderHeight = statusBarHeight;
     if (!_isLandscape) {
       totalTopHeaderHeight += appBarHeight;
     }
-    if (_showHeader) {
+    if (_showHeader || !_isLandscape) {
       totalTopHeaderHeight += infoHeaderHeight;
     }
 
@@ -443,21 +464,45 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       body: SafeArea(
         top: _isLandscape,
-        child: Stack(
-          children: [
-            // --- The List (Bottom Layer) ---
-            if (widget.settingsController.isHorizontalScrolling)
-              Positioned.fill(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: Quran.totalPagesCount,
-                  onPageChanged: (page) => _updateReadingPosition(page + 1),
-                  itemBuilder: (context, index) {
-                    return SingleChildScrollView(
-                      padding: EdgeInsets.only(
-                        top: totalTopHeaderHeight + 10,
-                        bottom: 20,
-                      ),
+        child: GestureDetector(
+          onDoubleTap: _toggleHeader,
+          child: Stack(
+            children: [
+              // --- The List (Bottom Layer) ---
+              if (widget.settingsController.isHorizontalScrolling)
+                Positioned.fill(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: Quran.totalPagesCount,
+                    onPageChanged: (page) => _updateReadingPosition(page + 1),
+                    itemBuilder: (context, index) {
+                      return SingleChildScrollView(
+                        padding: EdgeInsets.only(
+                          top: totalTopHeaderHeight + 10,
+                          bottom: 20,
+                        ),
+                        child: QuranPageWidget(
+                          pageNumber: index + 1,
+                          highlightedVerseListenable: _highlightedVerseNotifier,
+                          settingsController: widget.settingsController,
+                          onVerseTap: _onVerseTapped,
+                          bookmarkRevision: bookmarkRevision,
+                          onBookmarkChanged: () => bookmarkRevision.value++,
+                        ),
+                      );
+                    },
+                  ),
+                )
+              else
+                Positioned.fill(
+                  child: ScrollablePositionedList.builder(
+                    itemCount: Quran.totalPagesCount,
+                    itemScrollController: _itemScrollController,
+                    itemPositionsListener: _itemPositionsListener,
+                    initialScrollIndex:
+                        (widget.initialPosition?.pageNumber ?? 1) - 1,
+                    padding: EdgeInsets.only(top: totalTopHeaderHeight + 10),
+                    itemBuilder: (context, index) => RepaintBoundary(
                       child: QuranPageWidget(
                         pageNumber: index + 1,
                         highlightedVerseListenable: _highlightedVerseNotifier,
@@ -466,98 +511,43 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         bookmarkRevision: bookmarkRevision,
                         onBookmarkChanged: () => bookmarkRevision.value++,
                       ),
-                    );
-                  },
-                ),
-              )
-            else
-              Positioned.fill(
-                child: ScrollablePositionedList.builder(
-                  itemCount: Quran.totalPagesCount,
-                  itemScrollController: _itemScrollController,
-                  itemPositionsListener: _itemPositionsListener,
-                  initialScrollIndex:
-                      (widget.initialPosition?.pageNumber ?? 1) - 1,
-                  padding: EdgeInsets.only(top: totalTopHeaderHeight + 10),
-                  itemBuilder: (context, index) => RepaintBoundary(
-                    child: QuranPageWidget(
-                      pageNumber: index + 1,
-                      highlightedVerseListenable: _highlightedVerseNotifier,
-                      settingsController: widget.settingsController,
-                      onVerseTap: _onVerseTapped,
-                      bookmarkRevision: bookmarkRevision,
-                      onBookmarkChanged: () => bookmarkRevision.value++,
                     ),
                   ),
                 ),
-              ),
 
-            // --- Pinned Info Header (animates in/out in landscape) ---
-            if (_isLandscape)
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                top: _showHeader ? 0 : -infoHeaderHeight,
-                left: 0,
-                right: 0,
-                height: infoHeaderHeight,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: _showHeader ? 1 : 0,
+              // --- Pinned Info Header (animates in/out in landscape) ---
+              if (_isLandscape)
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  top: _showHeader ? 0 : -infoHeaderHeight,
+                  left: 0,
+                  right: 0,
+                  height: infoHeaderHeight,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 200),
+                    opacity: _showHeader ? 1 : 0,
+                    child: PinnedHeader(
+                      decoration: appBarDecoration,
+                      currentPositionNotifier: _currentPositionNotifier,
+                      goToPage: _jumpToPage,
+                    ),
+                  ),
+                )
+              else
+                Positioned(
+                  top: statusBarHeight + appBarHeight,
+                  left: 0,
+                  right: 0,
+                  height: infoHeaderHeight,
                   child: PinnedHeader(
                     decoration: appBarDecoration,
                     currentPositionNotifier: _currentPositionNotifier,
                     goToPage: _jumpToPage,
                   ),
                 ),
-              )
-            else
-              Positioned(
-                top: statusBarHeight + appBarHeight,
-                left: 0,
-                right: 0,
-                height: infoHeaderHeight,
-                child: PinnedHeader(
-                  decoration: appBarDecoration,
-                  currentPositionNotifier: _currentPositionNotifier,
-                  goToPage: _jumpToPage,
-                ),
-              ),
-
-            // --- Landscape toggle button ---
-            if (_isLandscape)
-              Positioned(
-                top: _showHeader ? infoHeaderHeight + 4 : 4,
-                left: 8,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: _showHeader ? 0.4 : 0.6,
-                  child: GestureDetector(
-                    onTap: _toggleHeader,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: context.colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.applyOpacity(0.1),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        _showHeader
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        size: 18,
-                        color: context.colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
