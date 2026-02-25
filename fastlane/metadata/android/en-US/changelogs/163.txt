@@ -1,0 +1,6 @@
+- Improved the colors in Light Reading Mode.
+- Improved the reading experience in landscape orientation.
+- Added an option to show the Hizb number in the page header.
+- Added an option to adjust line height.
+- Added a “Keep screen on while reading” feature.
+- Fixed incorrect highlighting for exact-match words in search results.

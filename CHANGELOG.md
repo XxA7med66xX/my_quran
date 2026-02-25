@@ -1,3 +1,12 @@
+### 1.6.0
+
+- FIX: Fixed incorrect highlighting for exact-match words in search results.
+- FEAT: Improved the colors in Light Reading Mode.
+- FEAT: Improved the reading experience in landscape orientation.
+- FEAT: Added an option to show the Hizb number in the page header.
+- FEAT: Added an option to adjust line height.
+- FEAT: Added a “Keep screen on while reading” feature.
+
 ### v1.5.0
 
 - FEAT: Add bookmark categories with colors
