@@ -13,11 +13,13 @@ class VerseMenuDialog extends StatefulWidget {
     required this.fontFamily,
     required this.surah,
     required this.verse,
+    required this.fontSize,
     super.key,
   });
   final int surah;
   final Verse verse;
   final FontFamily fontFamily;
+  final double fontSize;
   @override
   State<VerseMenuDialog> createState() => _VerseMenuDialogState();
 }
@@ -135,7 +137,7 @@ class _VerseMenuDialogState extends State<VerseMenuDialog> {
                             widget.verse.text,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: widget.fontSize,
                               height: 2,
                               fontFamily: widget.fontFamily.name,
                               color: colorScheme.onSurface,

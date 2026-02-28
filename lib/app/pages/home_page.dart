@@ -647,6 +647,7 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
         builder: (_) => Dialog(
           child: VerseMenuDialog(
             surah: surah,
+            fontSize: _fontSizeController.fontSize,
             fontFamily: widget.settingsController.fontFamily,
             verse: (
               number: verseNumber,
