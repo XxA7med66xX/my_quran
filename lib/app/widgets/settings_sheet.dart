@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
 import 'package:my_quran/app/font_size_controller.dart';
 import 'package:my_quran/app/models.dart';
 import 'package:my_quran/app/services/search_service.dart';
@@ -421,25 +422,34 @@ class _StepperRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
-          if (onReset != null && !isDefault) ...[
-            const SizedBox(width: 6),
-            FilledButton.tonalIcon(
-              onPressed: onReset,
-              icon: const Icon(Icons.restore),
-              label: Text(
-                'الافتراضي',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-          ],
+              if (onReset != null && !isDefault) ...[
+                const SizedBox(width: 6),
+                FilledButton.tonalIcon(
+                  onPressed: onReset,
+                  icon: const Icon(Icons.restore),
+                  label: Text(
+                    'الافتراضي',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+
           const Spacer(),
           Container(
             height: 54,
