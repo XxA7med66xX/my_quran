@@ -68,7 +68,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     _highlightedVerseNotifier = ValueNotifier(null);
-    Quran.data.addListener(_onQuranDataChanged);
+    Quran.instance.data.addListener(_onQuranDataChanged);
     _currentPositionNotifier = ValueNotifier(
       widget.initialPosition ??
           const ReadingPosition(
@@ -295,7 +295,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _itemPositionsListener.itemPositions.removeListener(_onScrollUpdate);
     WidgetsBinding.instance.removeObserver(this);
     _currentPositionNotifier.dispose();
-    Quran.data.removeListener(_onQuranDataChanged);
+    Quran.instance.data.removeListener(_onQuranDataChanged);
     widget.settingsController.removeListener(_onScrollingModeChanged);
     _fontSizeController.dispose();
     super.dispose();

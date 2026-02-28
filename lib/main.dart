@@ -26,7 +26,7 @@ Future<void> main() async {
 
   unawaited(SearchService.init(settingsController.fontFamily.name));
 
-  await Quran.initialize(fontFamily: settingsController.fontFamily);
+  await Quran.instance.initialize(fontFamily: settingsController.fontFamily);
   await FontSizeController().initialize();
 
   final lastPosition = await ReadingPositionService.loadPosition();

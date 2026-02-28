@@ -134,7 +134,7 @@ class SettingsSheet extends StatelessWidget {
                             const Duration(milliseconds: 300),
                           );
                           final newFont = settingsController.fontFamily;
-                          await Quran.useDatasourceForFont(newFont);
+                          await Quran.instance.useDatasourceForFont(newFont);
                           unawaited(SearchService.init(newFont.name));
                         },
                       ),
@@ -171,7 +171,9 @@ class SettingsSheet extends StatelessWidget {
                             await Future<void>.delayed(
                               const Duration(milliseconds: 300),
                             );
-                            await Quran.useDatasourceForFont(newSet.first);
+                            await Quran.instance.useDatasourceForFont(
+                              newSet.first,
+                            );
                           },
                         ),
                       ),
