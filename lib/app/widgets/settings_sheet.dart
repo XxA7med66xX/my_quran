@@ -26,7 +26,7 @@ class SettingsSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: context.colorScheme.surfaceContainerHigh,
+          color: context.colorScheme.surface,
         ),
         child: ListenableBuilder(
           listenable: Listenable.merge([fontController, settingsController]),
@@ -299,7 +299,7 @@ class SettingsSheet extends StatelessWidget {
   ButtonStyle _segmentStyle(ColorScheme colorScheme) {
     return ButtonStyle(
       textStyle: const WidgetStatePropertyAll(
-        TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
       ),
       foregroundColor: WidgetStateColor.resolveWith(
         (states) => states.contains(WidgetState.selected)
@@ -512,7 +512,7 @@ class _SegmentedRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 10),
           SizedBox(width: double.infinity, child: child),
@@ -579,7 +579,7 @@ class _ToggleRow extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -588,7 +588,7 @@ class _ToggleRow extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),

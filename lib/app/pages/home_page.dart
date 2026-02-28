@@ -446,8 +446,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       context: context,
                       showDragHandle: false,
                       isScrollControlled: true,
-                      barrierColor: Colors.transparent,
-
+                      barrierColor: Colors.black12,
                       constraints: BoxConstraints(
                         maxHeight: MediaQuery.of(context).size.height * .6,
                       ),
