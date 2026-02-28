@@ -137,7 +137,7 @@ class _VerseMenuDialogState extends State<VerseMenuDialog> {
                             widget.verse.text,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: widget.fontSize,
+                              fontSize: widget.fontSize.clamp(16, 40),
                               height: 2,
                               fontFamily: widget.fontFamily.name,
                               color: colorScheme.onSurface,

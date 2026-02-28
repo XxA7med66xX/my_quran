@@ -6,14 +6,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+
 import 'package:my_quran/app/pages/bookmarks_screen.dart';
 import 'package:my_quran/app/services/bookmark_service.dart';
 import 'package:my_quran/app/widgets/settings_sheet.dart';
 import 'package:my_quran/app/widgets/theme_tiles_picker.dart';
 import 'package:my_quran/app/widgets/whats_new_dialog.dart';
-
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-
 import 'package:my_quran/app/quran_page_text_cache.dart';
 import 'package:my_quran/app/settings_controller.dart';
 import 'package:my_quran/app/font_size_controller.dart';
@@ -47,6 +47,11 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final ItemScrollController _itemScrollController = ItemScrollController();
   final ItemPositionsListener _itemPositionsListener =
       ItemPositionsListener.create();
+
+  late final FontSizeController _fontSizeController = FontSizeController();
+
+  double _scaleFactor = 1;
+  double _baseScale = 1;
 
   late final ValueNotifier<ReadingPosition> _currentPositionNotifier;
   late final _pageController = PageController(
@@ -82,6 +87,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       WhatsNewDialog.showIfNeeded(context);
     });
+    _fontSizeController.addListener(() => setState(() {}));
   }
 
   late final ValueNotifier<int> bookmarkRevision = ValueNotifier(0);
@@ -291,6 +297,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _currentPositionNotifier.dispose();
     Quran.data.removeListener(_onQuranDataChanged);
     widget.settingsController.removeListener(_onScrollingModeChanged);
+    _fontSizeController.dispose();
     super.dispose();
   }
 
@@ -468,6 +475,16 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
         top: _isLandscape,
         child: GestureDetector(
           onDoubleTap: _toggleHeader,
+          onScaleStart: (_) => _baseScale = _scaleFactor,
+          onScaleUpdate: (d) => setState(
+            () => _scaleFactor = (_baseScale * d.scale).clamp(0.8, 2.5),
+          ),
+          onScaleEnd: (_) {
+            final newSize = _fontSizeController.fontSize * _scaleFactor;
+            _fontSizeController.setFontSize(newSize);
+            setState(() => _scaleFactor = 1.0);
+          },
+          excludeFromSemantics: true,
           child: Stack(
             children: [
               // --- The List (Bottom Layer) ---
@@ -484,6 +501,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           bottom: 20,
                         ),
                         child: QuranPageWidget(
+                          fontSizeController: _fontSizeController,
+                          scaleFactor: _scaleFactor,
                           pageNumber: index + 1,
                           highlightedVerseListenable: _highlightedVerseNotifier,
                           settingsController: widget.settingsController,
@@ -507,6 +526,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     itemBuilder: (context, index) => RepaintBoundary(
                       child: QuranPageWidget(
                         pageNumber: index + 1,
+                        fontSizeController: _fontSizeController,
+                        scaleFactor: _scaleFactor,
                         highlightedVerseListenable: _highlightedVerseNotifier,
                         settingsController: widget.settingsController,
                         onVerseTap: _onVerseTapped,
@@ -564,6 +585,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
 class QuranPageWidget extends StatefulWidget {
   const QuranPageWidget({
+    required this.scaleFactor,
+    required this.fontSizeController,
     required this.pageNumber,
     required this.settingsController,
     required this.highlightedVerseListenable,
@@ -578,18 +601,15 @@ class QuranPageWidget extends StatefulWidget {
   final ValueListenable<int> bookmarkRevision;
   final void Function(int surah, int verse)? onVerseTap;
   final VoidCallback? onBookmarkChanged;
+  final FontSizeController fontSizeController;
   final SettingsController settingsController;
+  final double scaleFactor;
 
   @override
   State<QuranPageWidget> createState() => _QuranPageWidgetState();
 }
 
 class _QuranPageWidgetState extends State<QuranPageWidget> {
-  late final FontSizeController _fontSizeController = FontSizeController();
-
-  double _scaleFactor = 1;
-  double _baseScale = 1;
-
   // Track to detect actual font changes
   late FontFamily _lastFontFamily;
   late FontWeight _lastFontWeight;
@@ -597,7 +617,6 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
   @override
   void initState() {
     super.initState();
-    _fontSizeController.addListener(_rebuild);
     _lastFontFamily = widget.settingsController.fontFamily;
     _lastFontWeight = widget.settingsController.fontWeight;
     widget.settingsController.addListener(_onSettingsChanged);
@@ -614,7 +633,6 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
 
   @override
   void dispose() {
-    _fontSizeController.removeListener(_rebuild);
     widget.settingsController.removeListener(_onSettingsChanged);
     super.dispose();
   }
@@ -647,7 +665,7 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
         builder: (_) => Dialog(
           child: VerseMenuDialog(
             surah: surah,
-            fontSize: _fontSizeController.fontSize,
+            fontSize: widget.fontSizeController.fontSize,
             fontFamily: widget.settingsController.fontFamily,
             verse: (
               number: verseNumber,
@@ -665,21 +683,22 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
     // Base padding from font size
     double base;
     if (fontSize >= 40) {
-      base = 6;
+      base = 10;
     } else if (fontSize >= 34) {
       base = 8;
-    } else if (fontSize >= 28) {
-      base = 10;
+    } else if (fontSize >= 27) {
+      base = screenWidth > 600 ? 12 : 20;
     } else {
-      base = 14;
+      base = 8;
     }
 
     // In landscape, add extra padding proportional to screen width
     // to keep line length comfortable for reading
     if (screenWidth > 600) {
       // Landscape or tablet
-      final extra = (screenWidth - 600) * 0.08;
-      return base + extra.clamp(0, 60);
+      final extra = (screenWidth - 600) * 0.1;
+      debugPrint((base + extra.clamp(26, 60)).toString());
+      return base + extra.clamp(26, 40);
     }
 
     return base;
@@ -688,22 +707,15 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
   @override
   Widget build(BuildContext context) {
     final pageModel = QuranPageTextCache.instance.get(widget.pageNumber);
-    final baseFontSize = _fontSizeController.verseFontSize * _scaleFactor;
+    final baseFontSize =
+        widget.fontSizeController.verseFontSize * widget.scaleFactor;
     final symbolFontSize =
-        _fontSizeController.verseSymbolFontSize * _scaleFactor;
+        widget.fontSizeController.verseSymbolFontSize * widget.scaleFactor;
     final headerFontSize =
-        _fontSizeController.surahHeaderFontSize * _scaleFactor;
+        widget.fontSizeController.surahHeaderFontSize * widget.scaleFactor;
     final fontFamily = widget.settingsController.fontFamily;
 
     return GestureDetector(
-      onScaleStart: (_) => _baseScale = _scaleFactor,
-      onScaleUpdate: (d) =>
-          setState(() => _scaleFactor = (_baseScale * d.scale).clamp(0.8, 2.5)),
-      onScaleEnd: (_) {
-        final newSize = _fontSizeController.fontSize * _scaleFactor;
-        _fontSizeController.setFontSize(newSize);
-        setState(() => _scaleFactor = 1.0);
-      },
       child: Container(
         color: Colors.transparent,
         padding: EdgeInsets.symmetric(
@@ -737,7 +749,7 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
                 bookmarkRevision: widget.bookmarkRevision,
                 onInteraction: _onVerseInteraction,
                 settingsController: widget.settingsController,
-                lineHeight: _fontSizeController.lineHeight,
+                lineHeight: widget.fontSizeController.lineHeight,
               ),
             ],
             if (!widget.settingsController.isHorizontalScrolling)
@@ -1020,6 +1032,9 @@ class _SurahTextBlockState extends State<_SurahTextBlock> {
 
     // Short surahs: center
     if (verseCount <= 20) return TextAlign.center;
+    if (MediaQuery.of(context).orientation == Orientation.landscape) {
+      return TextAlign.justify;
+    }
 
     // Large font: center (few words per line)
     if (widget.fontSize > 34) return TextAlign.center;
