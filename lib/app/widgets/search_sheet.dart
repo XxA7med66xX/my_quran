@@ -508,7 +508,7 @@ class _HighlightedText extends StatelessWidget {
       );
     }
 
-    // ---- 6) Decide slicing based on DISPLAY indices (since we render display) ----
+    // ---- 6) Decide slicing based on DISPLAY indices (since we render display)
     int startDisplayIndex = 0;
     bool showStartEllipsis = false;
 

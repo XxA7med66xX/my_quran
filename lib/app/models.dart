@@ -135,6 +135,56 @@ class BookmarkCategory {
   int get hashCode => id.hashCode;
 }
 
+@immutable
+class VerseNote {
+  const VerseNote({
+    required this.id,
+    required this.surah,
+    required this.verse,
+    required this.text,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory VerseNote.fromJson(Map<String, dynamic> json) {
+    return VerseNote(
+      id: json['id'] as String,
+      surah: json['surah'] as int,
+      verse: json['verse'] as int,
+      text: json['text'] as String,
+      createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(json['updatedAt'] as int),
+    );
+  }
+
+  final String id;
+  final int surah;
+  final int verse;
+  final String text;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'surah': surah,
+    'verse': verse,
+    'text': text,
+    'createdAt': createdAt.millisecondsSinceEpoch,
+    'updatedAt': updatedAt.millisecondsSinceEpoch,
+  };
+
+  VerseNote copyWith({String? text, DateTime? updatedAt}) {
+    return VerseNote(
+      id: id,
+      surah: surah,
+      verse: verse,
+      text: text ?? this.text,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+}
+
 class VerseBookmark {
   VerseBookmark({
     required this.id,
@@ -142,18 +192,32 @@ class VerseBookmark {
     required this.verse,
     required this.pageNumber,
     required this.createdAt,
+    DateTime? updatedAt,
+    @Deprecated(
+      'Legacy field. Notes are stored in NotesService now; kept only for migration/backward compatibility.',
+    )
     this.note,
     this.categoryId,
-  });
+  }) : updatedAt = updatedAt ?? createdAt;
 
   factory VerseBookmark.fromJson(Map<String, dynamic> json) {
+    final createdAt = DateTime.fromMillisecondsSinceEpoch(
+      json['createdAt'] as int,
+    );
+
+    final updatedAtMs = json['updatedAt'];
+    final updatedAt = updatedAtMs is int
+        ? DateTime.fromMillisecondsSinceEpoch(updatedAtMs)
+        : createdAt;
+
     return VerseBookmark(
       id: json['id'] as String,
       surah: json['surah'] as int,
       verse: json['verse'] as int,
       pageNumber: json['pageNumber'] as int,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
-      note: json['note'] as String?,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      note: json['note'] as String?, // legacy
       categoryId: json['categoryId'] as String?,
     );
   }
@@ -162,8 +226,19 @@ class VerseBookmark {
   final int surah;
   final int verse;
   final int pageNumber;
+
+  /// Creation time (stable)
   final DateTime createdAt;
+
+  /// Last modification time (used for future-proof merge/sync rules)
+  final DateTime updatedAt;
+
+  @Deprecated(
+    'Legacy field. Notes are stored in NotesService now; '
+    'kept only for migration/backward compatibility.',
+  )
   final String? note;
+
   final String? categoryId;
 
   Map<String, dynamic> toJson() => {
@@ -172,7 +247,8 @@ class VerseBookmark {
     'verse': verse,
     'pageNumber': pageNumber,
     'createdAt': createdAt.millisecondsSinceEpoch,
-    'note': note,
+    'updatedAt': updatedAt.millisecondsSinceEpoch,
+    'note': note, // legacy (keep for now)
     'categoryId': categoryId,
   };
 
@@ -182,15 +258,18 @@ class VerseBookmark {
     int? verse,
     int? pageNumber,
     DateTime? createdAt,
+    DateTime? updatedAt,
     String? Function()? note,
     String? Function()? categoryId,
   }) {
+    final newCreatedAt = createdAt ?? this.createdAt;
     return VerseBookmark(
       id: id ?? this.id,
       surah: surah ?? this.surah,
       verse: verse ?? this.verse,
       pageNumber: pageNumber ?? this.pageNumber,
-      createdAt: createdAt ?? this.createdAt,
+      createdAt: newCreatedAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       note: note != null ? note() : this.note,
       categoryId: categoryId != null ? categoryId() : this.categoryId,
     );

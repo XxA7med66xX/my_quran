@@ -103,7 +103,13 @@ jobs:
 
             # --- BUILD APKs ---
             - name: Build Split APKs
-              run: flutter build apk --release --split-per-abi
+              env:
+                APP_VERSION: ${{ needs.get-version-info.outputs.version }}
+                APP_BUILD: ${{ needs.get-version-info.outputs.build_number }}
+              run: |
+                flutter build apk --release --split-per-abi \
+                  --dart-define=APP_VERSION="$APP_VERSION" \
+                  --dart-define=APP_BUILD="$APP_BUILD"
             - name: Zipalign and Resign APKs
               run: |
                   # 1. Dynamically find the latest version of apksigner
@@ -179,7 +185,14 @@ jobs:
               uses: actions/configure-pages@v4
 
             - name: Build Web App
-              run: flutter build web --pwa-strategy=offline-first --base-href "${{ steps.pages.outputs.base_path }}/"
+              env:
+                APP_VERSION: ${{ needs.get-version-info.outputs.version }}
+                APP_BUILD: ${{ needs.get-version-info.outputs.build_number }}
+              run: |
+                flutter build web --pwa-strategy=offline-first \
+                  --base-href "${{ steps.pages.outputs.base_path }}/" \
+                  --dart-define=APP_VERSION="$APP_VERSION" \
+                  --dart-define=APP_BUILD="$APP_BUILD"
 
             - name: Upload GitHub Pages artifact
               uses: actions/upload-pages-artifact@v3

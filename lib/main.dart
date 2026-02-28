@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:my_quran/app/font_size_controller.dart';
 import 'package:my_quran/app/models.dart';
 import 'package:my_quran/app/pages/home_page.dart';
+import 'package:my_quran/app/services/data_migration_service.dart';
 import 'package:my_quran/app/services/reading_position_service.dart';
 import 'package:my_quran/app/services/search_service.dart';
 import 'package:my_quran/app/services/settings_service.dart';
@@ -42,6 +43,8 @@ Future<void> main() async {
 
   // Edge-to-Edge mode for Android 10+ (Removes bottom black bar)
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  await DataMigrationService.migrateBookmarkNotesToNotes();
 
   runApp(MyApp(lastPosition, settingsController));
 }

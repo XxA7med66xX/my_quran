@@ -37,6 +37,9 @@ class BookmarkService {
     const BookmarkCategory(id: 'tafsir', title: 'تفسير', color: Colors.purple),
   ];
 
+  static BookmarkCategory get _defaultCategory =>
+      defaultCategories.firstWhere((c) => c.id == 'default');
+
   // ──────────────────────────────────────────────
   // Categories CRUD
   // ──────────────────────────────────────────────
@@ -50,9 +53,17 @@ class BookmarkService {
       return List.from(defaultCategories);
     }
     final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
-    return decoded
+    final categories = decoded
         .map((e) => BookmarkCategory.fromJson(e as Map<String, dynamic>))
         .toList();
+
+    // Safety: ensure default exists
+    if (!categories.any((c) => c.id == 'default')) {
+      categories.insert(0, _defaultCategory);
+      await _saveCategories(categories);
+    }
+
+    return categories;
   }
 
   Future<BookmarkCategory?> getCategoryById(String id) async {
@@ -68,14 +79,18 @@ class BookmarkService {
     final raw = _prefs?.getString(_categoriesKey);
     if (raw == null) return List.from(defaultCategories);
     final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
-    return decoded
+    final categories = decoded
         .map((e) => BookmarkCategory.fromJson(e as Map<String, dynamic>))
         .toList();
+
+    if (!categories.any((c) => c.id == 'default')) {
+      return [_defaultCategory, ...categories];
+    }
+    return categories;
   }
 
   Future<void> addCategory(BookmarkCategory category) async {
     final categories = await getCategories();
-    // Ensure unique id
     if (categories.any((c) => c.id == category.id)) return;
     categories.add(category);
     await _saveCategories(categories);
@@ -90,22 +105,40 @@ class BookmarkService {
   }
 
   Future<void> removeCategory(String categoryId) async {
-    // Don't allow removing the default category
     if (categoryId == 'default') return;
 
     final categories = await getCategories();
     categories.removeWhere((c) => c.id == categoryId);
     await _saveCategories(categories);
 
-    // Move bookmarks in this category to 'default'
     final bookmarks = await getBookmarks();
     final updated = bookmarks.map((b) {
-      if (b.categoryId == categoryId) {
+      if ((b.categoryId ?? 'default') == categoryId) {
         return b.copyWith(categoryId: () => 'default');
       }
       return b;
     }).toList();
     await _saveBookmarks(updated);
+  }
+
+  /// Ensures:
+  /// - unique IDs
+  /// - default category exists
+  Future<void> replaceCategories(List<BookmarkCategory> categories) async {
+    final unique = <String, BookmarkCategory>{};
+    for (final c in categories) {
+      unique[c.id] = c;
+    }
+    unique.putIfAbsent('default', () => _defaultCategory);
+
+    final normalized = unique.values.toList()
+      ..sort((a, b) {
+        if (a.id == 'default') return -1;
+        if (b.id == 'default') return 1;
+        return a.title.compareTo(b.title);
+      });
+
+    await _saveCategories(normalized);
   }
 
   Future<void> _saveCategories(List<BookmarkCategory> categories) async {
@@ -151,9 +184,36 @@ class BookmarkService {
     }
   }
 
+  VerseBookmark _normalizeBookmark(VerseBookmark b) {
+    final cat = (b.categoryId == null || b.categoryId!.trim().isEmpty)
+        ? 'default'
+        : b.categoryId!;
+    return b.copyWith(categoryId: () => cat);
+  }
+
   Future<void> addBookmark(VerseBookmark bookmark) async {
     final bookmarks = await getBookmarks();
-    bookmarks.add(bookmark);
+
+    final now = DateTime.now();
+    final normalized = _normalizeBookmark(bookmark);
+
+    final existingIndex = bookmarks.indexWhere(
+      (b) => b.surah == normalized.surah && b.verse == normalized.verse,
+    );
+
+    if (existingIndex != -1) {
+      final existing = bookmarks[existingIndex];
+
+      // preserve identity + original createdAt, update updatedAt
+      bookmarks[existingIndex] = normalized.copyWith(
+        id: existing.id,
+        createdAt: existing.createdAt,
+        updatedAt: now,
+      );
+    } else {
+      bookmarks.add(normalized.copyWith(updatedAt: now));
+    }
+
     await _saveBookmarks(bookmarks);
   }
 
@@ -161,7 +221,11 @@ class BookmarkService {
     final bookmarks = await getBookmarks();
     final index = bookmarks.indexWhere((b) => b.id == bookmark.id);
     if (index == -1) return;
-    bookmarks[index] = bookmark;
+
+    final now = DateTime.now();
+    final normalized = _normalizeBookmark(bookmark);
+
+    bookmarks[index] = normalized.copyWith(updatedAt: now);
     await _saveBookmarks(bookmarks);
   }
 
@@ -179,7 +243,21 @@ class BookmarkService {
 
   Future<List<VerseBookmark>> getBookmarksByCategory(String categoryId) async {
     final bookmarks = await getBookmarks();
-    return bookmarks.where((b) => b.categoryId == categoryId).toList();
+    final cid = categoryId.trim().isEmpty ? 'default' : categoryId;
+    return bookmarks.where((b) => (b.categoryId ?? 'default') == cid).toList();
+  }
+
+  /// OPTION A: Replace bookmarks wholesale (used by backup import).
+  /// Ensures:
+  /// - one bookmark per verse (dedupe)
+  /// - categoryId normalized
+  Future<void> replaceBookmarks(List<VerseBookmark> bookmarks) async {
+    final map = <String, VerseBookmark>{};
+    for (final b in bookmarks) {
+      final nb = _normalizeBookmark(b);
+      map['${nb.surah}:${nb.verse}'] = nb; // keep last wins
+    }
+    await _saveBookmarks(map.values.toList());
   }
 
   Future<void> _saveBookmarks(List<VerseBookmark> bookmarks) async {
