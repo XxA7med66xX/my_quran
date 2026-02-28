@@ -625,11 +625,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   Future<void> _openCategoryManagement() async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(
-        builder: (_) => ManageCategoriesScreen(
-          settingsController: widget.settingsController,
-        ),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const ManageCategoriesScreen()),
     );
     // Reload in case categories changed
     await _reloadAndNotify();

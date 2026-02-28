@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'package:my_quran/app/models.dart';
 import 'package:my_quran/app/services/bookmark_service.dart';
-import 'package:my_quran/app/settings_controller.dart';
 
 class ManageCategoriesScreen extends StatefulWidget {
-  const ManageCategoriesScreen({required this.settingsController, super.key});
-  final SettingsController settingsController;
+  const ManageCategoriesScreen({super.key});
 
   @override
   State<ManageCategoriesScreen> createState() => _ManageCategoriesScreenState();

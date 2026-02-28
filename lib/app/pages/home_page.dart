@@ -723,7 +723,10 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
                   fontFamily: fontFamily,
                 ),
                 if (pageModel.surahs[i].hasBasmala || fontFamily.isWarsh)
-                  _Basmala(fontSize: headerFontSize, fontFamily: fontFamily),
+                  _Basmala(
+                    fontSize: headerFontSize + 2,
+                    fontFamily: fontFamily,
+                  ),
               ],
               _SurahTextBlock(
                 surahNumber: pageModel.surahs[i].surahNumber,
@@ -764,17 +767,21 @@ class _SurahHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12, top: 4),
+      margin: const EdgeInsets.only(bottom: 24, top: 4),
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: context.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(2),
+        border: Border.symmetric(
+          horizontal: BorderSide(color: context.colorScheme.primary),
+        ),
       ),
       child: DefaultTextStyle(
         style: TextStyle(
           color: context.colorScheme.onSecondaryContainer,
           fontWeight: FontWeight.w600,
-          fontFamily: fontFamily.name,
+          fontFamily: fontFamily != FontFamily.warsh
+              ? FontFamily.rustam.name
+              : fontFamily.name,
+
           letterSpacing: 0,
         ),
         child: Row(
@@ -878,7 +885,7 @@ class _SurahTextBlock extends StatefulWidget {
   final ValueListenable<int> bookmarkRevision;
   final void Function(int s, int v, {required bool isLongPress}) onInteraction;
   final SettingsController settingsController;
-  final double lineHeight;
+  final double? lineHeight;
 
   @override
   State<_SurahTextBlock> createState() => _SurahTextBlockState();

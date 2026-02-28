@@ -122,10 +122,14 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<void> _applyWakelock() async {
-    if (_keepScreenOn) {
-      await WakelockPlus.enable();
-    } else {
-      await WakelockPlus.disable();
+    try {
+      if (_keepScreenOn) {
+        await WakelockPlus.enable();
+      } else {
+        await WakelockPlus.disable();
+      }
+    } catch (_) {
+      // errors due to unsupported platforms, etc..
     }
   }
 

@@ -55,13 +55,17 @@ class SettingsSheet extends StatelessWidget {
                     const _ThinDivider(),
                     _StepperRow(
                       label: 'ارتفاع الأسطر',
-                      value: fontController.lineHeight.toStringAsFixed(1),
+                      value: fontController.isDefaultLineHeight
+                          ? 'تلقائي'
+                          : fontController.lineHeight!.toStringAsFixed(1),
                       onDecrease: fontController.isAtMinLineHeight
                           ? null
                           : fontController.decreaseLineHeight,
                       onIncrease: fontController.isAtMaxLineHeight
                           ? null
                           : fontController.increaseLineHeight,
+                      onReset: fontController.resetLineHeight,
+                      isDefault: fontController.isDefaultLineHeight,
                     ),
                     const _ThinDivider(),
                     _SegmentedRow(
@@ -295,7 +299,7 @@ class SettingsSheet extends StatelessWidget {
   ButtonStyle _segmentStyle(ColorScheme colorScheme) {
     return ButtonStyle(
       textStyle: const WidgetStatePropertyAll(
-        TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
       foregroundColor: WidgetStateColor.resolveWith(
         (states) => states.contains(WidgetState.selected)
@@ -308,7 +312,7 @@ class SettingsSheet extends StatelessWidget {
             : Colors.transparent,
       ),
       side: WidgetStatePropertyAll(
-        BorderSide(color: colorScheme.outlineVariant.applyOpacity(0.5)),
+        BorderSide(color: colorScheme.outlineVariant),
       ),
     );
   }
@@ -399,12 +403,16 @@ class _StepperRow extends StatelessWidget {
     required this.value,
     required this.onDecrease,
     required this.onIncrease,
+    this.isDefault = false,
+    this.onReset,
   });
 
   final String label;
   final String value;
   final VoidCallback? onDecrease;
   final VoidCallback? onIncrease;
+  final VoidCallback? onReset;
+  final bool isDefault;
 
   @override
   Widget build(BuildContext context) {
@@ -417,6 +425,21 @@ class _StepperRow extends StatelessWidget {
             label,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
+          if (onReset != null && !isDefault) ...[
+            const SizedBox(width: 6),
+            FilledButton.tonalIcon(
+              onPressed: onReset,
+              icon: const Icon(Icons.restore),
+              label: Text(
+                'الافتراضي',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
           const Spacer(),
           Container(
             height: 54,
