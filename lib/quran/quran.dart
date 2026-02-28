@@ -9,19 +9,24 @@ import 'package:my_quran/app/models.dart';
 import 'package:my_quran/quran/data/hizb_data.dart';
 
 import 'package:my_quran/quran/data/juz_data.dart';
-import 'package:my_quran/quran/data/page_data.dart';
+import 'package:my_quran/quran/data/hafs_page_data.dart';
 import 'package:my_quran/quran/data/sajdah_verses.dart';
 import 'package:my_quran/quran/data/surah_data.dart';
+import 'package:my_quran/quran/data/warsh_page_data.dart';
 
 class Quran {
   Quran._();
   static final instance = Quran._();
 
   /// The text displayed to the user (Visual)
-  static final data = ValueNotifier<Map<String, dynamic>>({});
+  ValueNotifier<Map<String, dynamic>> data =
+      ValueNotifier<Map<String, dynamic>>({});
 
   /// The text used for Search Logic (Standard Arabic)
-  static late final Map<String, dynamic> _plainTextData;
+  late Map<String, dynamic> _plainTextData;
+
+  late Map<(int, int), int> _verseToPageMap;
+  late Map<int, List<int>> _surahToPages;
 
   // --- ASSET PATHS ---
   static const String _medinaPath = 'assets/quran.json';
@@ -29,7 +34,7 @@ class Quran {
   static const String _warshPath = 'assets/warsh.json';
 
   /// Helper to get the correct path
-  static String _getPathForFont(FontFamily fontFamily) {
+  String _getPathForFont(FontFamily fontFamily) {
     switch (fontFamily) {
       case FontFamily.rustam:
         return _medinaPath;
@@ -42,7 +47,7 @@ class Quran {
     }
   }
 
-  static Future<Map<String, dynamic>?> _loadJson(String path) async {
+  Future<Map<String, dynamic>?> _loadJson(String path) async {
     try {
       final String jsonString = await rootBundle.loadString(path);
 
@@ -59,40 +64,38 @@ class Quran {
     return json.decode(jsonString) as Map<String, dynamic>;
   }
 
-  static Future<void> initialize({FontFamily? fontFamily}) async {
-    final font = fontFamily ?? FontFamily.defaultFontFamily;
-
-    // 1. Load the Visual Data (What the user reads in the main view)
-    if (await _loadJson(_getPathForFont(font))
-        case final Map<String, dynamic> loadedData) {
-      data.value = loadedData;
-
-      // 2. Load the Logic Data (For Search Results & Highlighting)
-      if (font == FontFamily.warsh) {
-        // CRITICAL: For Warsh, the "Plain Text" is the Warsh data itself.
-        // We indexed this file, so we must display/highlight this file.
-        _plainTextData = loadedData;
-      } else {
-        // For Hafs/Rustam, we keep using the dedicated plain text file (Medina)
-        // because it's cleaner for search snippets.
-        if (font == FontFamily.rustam) {
-          _plainTextData = loadedData;
-        } else {
-          // If we are in Hafs Uthmani, load the Simple/Medina text for search
-          unawaited(
-            _loadJson(_medinaPath).then((v) {
-              _plainTextData = v ?? {};
-            }),
-          );
-        }
-      }
-    }
+  Future<void> initialize({FontFamily? fontFamily}) async {
+    await _applyFont(fontFamily ?? FontFamily.defaultFontFamily);
   }
 
-  static Future<void> useDatasourceForFont(FontFamily fontFamily) async {
-    if (await _loadJson(_getPathForFont(fontFamily))
-        case final Map<String, dynamic> loadedData) {
-      data.value = loadedData;
+  Future<void> useDatasourceForFont(FontFamily fontFamily) async {
+    await _applyFont(fontFamily);
+  }
+
+  void _buildReverseLookups() {
+    _verseToPageMap = {};
+    _surahToPages = {};
+
+    for (int pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
+      final pageNumber = pageIndex + 1;
+      final page = pageData[pageIndex];
+
+      for (final entry in page) {
+        final surah = entry['surah']!;
+        final start = entry['start']!;
+        final end = entry['end']!;
+
+        // Build verse → page map
+        for (int verse = start; verse <= end; verse++) {
+          _verseToPageMap[(surah, verse)] = pageNumber;
+        }
+
+        // Build surah → pages map
+        _surahToPages.putIfAbsent(surah, () => []);
+        if (!_surahToPages[surah]!.contains(pageNumber)) {
+          _surahToPages[surah]!.add(pageNumber);
+        }
+      }
     }
   }
 
@@ -106,6 +109,27 @@ class Quran {
             ),
           )
           .toList(growable: false);
+
+  Future<void> _applyFont(FontFamily fontFamily) async {
+    final loadedData = await _loadJson(_getPathForFont(fontFamily));
+    if (loadedData == null) {
+      throw StateError('Failed to load Quran data.');
+    }
+
+    data.value = loadedData;
+
+    if (fontFamily == FontFamily.warsh) {
+      _plainTextData = loadedData;
+    } else {
+      _plainTextData = await _loadJson(_medinaPath) ?? {};
+    }
+
+    pageData = fontFamily.isWarsh ? warshPageData : hafsPageData;
+
+    _buildReverseLookups();
+  }
+
+  List<List<Map<String, int>>> pageData = [];
 
   ///Takes [pageNumber] and returns a list containing Surahs and the starting
   /// and ending Verse numbers in that page
@@ -125,8 +149,8 @@ class Quran {
   ///
   ///Length of the list is the number of surah in that page.
   List<Map<String, int>> getPageData(int pageNumber) {
-    if (pageNumber < 1 || pageNumber > 604) {
-      throw 'Invalid page number. Page number must be between 1 and 604';
+    if (pageNumber < 1 || pageNumber > totalPagesCount) {
+      throw RangeError.range(pageNumber, 1, totalPagesCount, 'pageNumber');
     }
     return pageData[pageNumber - 1];
   }
@@ -171,14 +195,15 @@ class Quran {
 
   ///Takes [pageNumber] and returns total verses count in that page
   int getVerseCountByPage(int pageNumber) {
-    if (pageNumber < 1 || pageNumber > 604) {
-      throw 'Invalid page number. Page number must be between 1 and 604';
+    if (pageNumber < 1 || pageNumber > totalPagesCount) {
+      throw RangeError.range(pageNumber, 1, totalPagesCount, 'pageNumber');
     }
-    int totalVerseCount = 0;
-    for (int i = 0; i < pageData[pageNumber - 1].length; i++) {
-      totalVerseCount += pageData[pageNumber - 1][i]['end'] ?? 0;
+
+    int total = 0;
+    for (final entry in pageData[pageNumber - 1]) {
+      total += entry['end']! - entry['start']! + 1;
     }
-    return totalVerseCount;
+    return total;
   }
 
   int getJuzNumber(int surahNumber, int verseNumber) {
@@ -206,8 +231,8 @@ class Quran {
 
   ///Takes [surahNumber] and returns the Surah name
   String getSurahName(int surahNumber) {
-    if (surahNumber > 114 || surahNumber <= 0) {
-      throw 'No Surah found with given surahNumber';
+    if (surahNumber < 1 || surahNumber > totalSurahCount) {
+      throw RangeError.range(surahNumber, 1, totalSurahCount, 'surahNumber');
     }
     return surah[surahNumber - 1]['name']! as String;
   }
@@ -215,39 +240,34 @@ class Quran {
   ///Takes [surahNumber] returns the Surah name in Arabic
   String getSurahNameArabic(int surahNumber) {
     if (surahNumber > 114 || surahNumber <= 0) {
-      throw 'No Surah found with given surahNumber';
+      throw RangeError.range(
+        surahNumber,
+        1,
+        totalSurahCount,
+        'No Surah found with given surahNumber',
+      );
     }
     return surah[surahNumber - 1]['arabic']! as String;
   }
 
   ///Takes [surahNumber], [verseNumber] and returns the page number of the Quran
   int getPageNumber(int surahNumber, int verseNumber) {
-    if (surahNumber > 114 || surahNumber <= 0) {
-      throw 'No Surah found with given surahNumber';
+    if (surahNumber < 1 || surahNumber > totalSurahCount) {
+      throw RangeError.range(surahNumber, 1, totalSurahCount, 'surahNumber');
     }
 
-    for (int pageIndex = 0; pageIndex < pageData.length; pageIndex++) {
-      for (
-        int surahIndexInPage = 0;
-        surahIndexInPage < pageData[pageIndex].length;
-        surahIndexInPage++
-      ) {
-        final e = pageData[pageIndex][surahIndexInPage];
-        if (e['surah'] == surahNumber &&
-            e['start']! <= verseNumber &&
-            e['end']! >= verseNumber) {
-          return pageIndex + 1;
-        }
-      }
+    final page = _verseToPageMap[(surahNumber, verseNumber)];
+    if (page == null) {
+      throw ArgumentError('Invalid verse number.');
     }
 
-    throw 'Invalid verse number.';
+    return page;
   }
 
   ///Takes [surahNumber] and returns the place of revelation (Makkah / Madinah) of the surah
   String getPlaceOfRevelation(int surahNumber) {
-    if (surahNumber > 114 || surahNumber <= 0) {
-      throw 'No Surah found with given surahNumber';
+    if (surahNumber < 1 || surahNumber > totalSurahCount) {
+      throw RangeError.range(surahNumber, 1, totalSurahCount, 'surahNumber');
     }
     return surah[surahNumber - 1]['place'].toString();
   }
@@ -267,10 +287,8 @@ class Quran {
     int verseNumber, {
     bool verseEndSymbol = false,
   }) {
-    final verse =
-        (data.value[surahNumber.toString()]
-                as Map<String, dynamic>?)?[verseNumber.toString()]
-            as String?;
+    final surah = data.value[surahNumber.toString()] as Map<String, dynamic>?;
+    final verse = surah?[verseNumber.toString()] as String?;
 
     if (verse == null) {
       throw 'No verse found with given surahNumber and verseNumber.\n\n';
@@ -326,23 +344,11 @@ class Quran {
 
   ///Takes [surahNumber] and returns the list of page numbers of the surah
   List<int> getSurahPages(int surahNumber) {
-    if (surahNumber > 114 || surahNumber <= 0) {
-      throw 'Invalid surahNumber';
+    if (surahNumber < 1 || surahNumber > totalSurahCount) {
+      throw RangeError.range(surahNumber, 1, totalSurahCount, 'surahNumber');
     }
 
-    const pagesCount = totalPagesCount;
-    final List<int> pages = [];
-    for (int currentPage = 1; currentPage <= pagesCount; currentPage++) {
-      final pageData = getPageData(currentPage);
-      for (int j = 0; j < pageData.length; j++) {
-        final currentSurahNum = pageData[j]['surah'];
-        if (currentSurahNum == surahNumber) {
-          pages.add(currentPage);
-          break;
-        }
-      }
-    }
-    return pages;
+    return List.unmodifiable(_surahToPages[surahNumber] ?? []);
   }
 
   ///Takes [surahNumber] & [verseNumber] and returns true if verse is sajdah

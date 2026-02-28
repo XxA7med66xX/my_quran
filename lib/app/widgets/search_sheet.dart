@@ -381,19 +381,15 @@ class _HighlightedText extends StatelessWidget {
   // ---------------- Matching normalization ----------------
   String _normalizeForMatch(String s) {
     // 1) remove Quran marks/harakat that might appear in plain
-    s = _stripQuranMarksAndHarakat(s);
+    final stripped = _stripQuranMarksAndHarakat(s);
 
     // 2) normalize your Arabic (alef forms etc.)
-    s = ArabicTextProcessor.normalize(s);
-
-    // 3) remove punctuation/non-letters around/inside token for matching
-    s = s.replaceAll(RegExp(r'[^\u0600-\u06FF0-9]+'), '');
-
-    // 4) make search equivalence match highlight equivalence:
-    //    taa marbuta vs haa (then "ثمرة" highlights "ثمره")
-    s = s.replaceAll(RegExp(r'ة$'), 'ه');
-
-    return s;
+    return ArabicTextProcessor.normalize(stripped)
+      // 3) remove punctuation/non-letters around/inside token for matching
+      ..replaceAll(RegExp(r'[^\u0600-\u06FF0-9]+'), '')
+      // 4) make search equivalence match highlight equivalence:
+      //    taa marbuta vs haa (then "ثمرة" highlights "ثمره")
+      ..replaceAll(RegExp(r'ة$'), 'ه');
   }
 
   @override
@@ -447,7 +443,7 @@ class _HighlightedText extends StatelessWidget {
 
     _d('QUERY normalized tokens = $normalizedQueryTokens');
 
-    // ---- 4) Build display->plain mapping (consume only display "word tokens") ----
+    // ---- 4) Build display->plain mapping (consume only display "word tokens")
     final displayToPlain = <int?>[];
     int p = 0;
     int displayWordCount = 0;
@@ -475,7 +471,8 @@ class _HighlightedText extends StatelessWidget {
     if (displayWordCount != plainContentWords.length) {
       _d(
         'WARNING: word-count mismatch -> alignment may drift.\n'
-        '  displayWordCount=$displayWordCount vs plainContentWords=${plainContentWords.length}',
+        '  displayWordCount=$displayWordCount vs'
+        ' plainContentWords=${plainContentWords.length}',
       );
     }
 
