@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:my_quran/app/font_size_controller.dart';
 import 'package:my_quran/app/models.dart';
+// import 'package:my_quran/app/services/backup_service.dart';
 import 'package:my_quran/app/services/search_service.dart';
 import 'package:my_quran/app/settings_controller.dart';
 import 'package:my_quran/app/utils.dart';
@@ -24,10 +25,10 @@ class SettingsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: context.colorScheme.surface,
+          color: context.colorScheme.surfaceContainerHigh,
         ),
         child: ListenableBuilder(
           listenable: Listenable.merge([fontController, settingsController]),
@@ -37,11 +38,12 @@ class SettingsSheet extends StatelessWidget {
 
             return ListView(
               children: [
-                // ═══════════════════════════════════
-                // القراءة
-                // ═══════════════════════════════════
-                const _SectionHeader(icon: Icons.text_fields, title: 'القراءة'),
-                _SettingsCard(
+                _groupTile(
+                  key: const PageStorageKey('settings_group_font'),
+                  icon: Icons.text_fields,
+                  title: 'الخط',
+                  subtitle: _fontSubtitle(context, isWarsh),
+                  initiallyExpanded: true,
                   children: [
                     _StepperRow(
                       label: 'حجم الخط',
@@ -54,6 +56,82 @@ class SettingsSheet extends StatelessWidget {
                           : fontController.increaseFontSize,
                     ),
                     const _ThinDivider(),
+
+                    // Font weight (you wanted it with font controls)
+                    if (settingsController.fontFamily != FontFamily.rustam) ...[
+                      _SegmentedRow(
+                        label: 'سماكة الخط',
+                        child: SegmentedButton<FontWeight>(
+                          segments: const [
+                            ButtonSegment(
+                              value: FontWeight.w500,
+                              label: Text('عادي'),
+                            ),
+                            ButtonSegment(
+                              value: FontWeight.w600,
+                              label: Text('عريض'),
+                            ),
+                          ],
+                          style: _segmentStyle(colorScheme),
+                          selected: {settingsController.fontWeight},
+                          onSelectionChanged: (newSet) {
+                            settingsController.fontWeight = newSet.first;
+                          },
+                        ),
+                      ),
+                      const _ThinDivider(),
+                    ],
+
+                    // Font type (Uthmani vs Madina) - hide completely in Warsh
+                    if (!isWarsh) ...[
+                      _SegmentedRow(
+                        label: 'نوع الخط',
+                        child: SegmentedButton<FontFamily>(
+                          segments: [
+                            ButtonSegment(
+                              value: FontFamily.hafs,
+                              label: Text(
+                                'الرسم العثماني',
+                                style: TextStyle(
+                                  fontFamily: FontFamily.hafs.name,
+                                ),
+                              ),
+                            ),
+                            ButtonSegment(
+                              value: FontFamily.rustam,
+                              label: Text(
+                                'خط المدينة',
+                                style: TextStyle(
+                                  fontFamily: FontFamily.rustam.name,
+                                ),
+                              ),
+                            ),
+                          ],
+                          style: _segmentStyle(colorScheme),
+                          selected: {settingsController.fontFamily},
+                          onSelectionChanged: (newSet) async {
+                            settingsController.fontFamily = newSet.first;
+                            await Future<void>.delayed(
+                              const Duration(milliseconds: 300),
+                            );
+                            await Quran.instance.useDatasourceForFont(
+                              newSet.first,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                _groupTile(
+                  key: const PageStorageKey('settings_group_reading'),
+                  icon: Icons.chrome_reader_mode_outlined,
+                  title: 'القراءة',
+                  subtitle: _readingSubtitle(context),
+                  children: [
                     _StepperRow(
                       label: 'ارتفاع الأسطر',
                       value: fontController.isDefaultLineHeight
@@ -95,19 +173,16 @@ class SettingsSheet extends StatelessWidget {
                   ],
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
 
-                // ═══════════════════════════════════
-                // الخط والرواية
-                // ═══════════════════════════════════
-                const _SectionHeader(
-                  icon: Icons.font_download_outlined,
-                  title: 'الخط والرواية',
-                ),
-                _SettingsCard(
+                _groupTile(
+                  key: const PageStorageKey('settings_group_narration'),
+                  icon: Icons.record_voice_over_outlined,
+                  title: 'الرواية',
+                  subtitle: isWarsh ? 'ورش عن نافع' : 'حفص عن عاصم',
                   children: [
                     _SegmentedRow(
-                      label: 'الرواية',
+                      label: 'اختيار الرواية',
                       child: SegmentedButton<bool>(
                         segments: [
                           const ButtonSegment(
@@ -130,6 +205,7 @@ class SettingsSheet extends StatelessWidget {
                           settingsController.fontFamily = newSet.first
                               ? FontFamily.warsh
                               : FontFamily.hafs;
+
                           await Future<void>.delayed(
                             const Duration(milliseconds: 300),
                           );
@@ -139,101 +215,32 @@ class SettingsSheet extends StatelessWidget {
                         },
                       ),
                     ),
-                    if (!isWarsh) ...[
-                      const _ThinDivider(),
-                      _SegmentedRow(
-                        label: 'نوع الخط',
-                        child: SegmentedButton<FontFamily>(
-                          segments: [
-                            ButtonSegment(
-                              value: FontFamily.hafs,
-                              label: Text(
-                                'الرسم العثماني',
-                                style: TextStyle(
-                                  fontFamily: FontFamily.hafs.name,
-                                ),
-                              ),
-                            ),
-                            ButtonSegment(
-                              value: FontFamily.rustam,
-                              label: Text(
-                                'خط المدينة',
-                                style: TextStyle(
-                                  fontFamily: FontFamily.rustam.name,
-                                ),
-                              ),
-                            ),
-                          ],
-                          style: _segmentStyle(colorScheme),
-                          selected: {settingsController.fontFamily},
-                          onSelectionChanged: (newSet) async {
-                            settingsController.fontFamily = newSet.first;
-                            await Future<void>.delayed(
-                              const Duration(milliseconds: 300),
-                            );
-                            await Quran.instance.useDatasourceForFont(
-                              newSet.first,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    if (settingsController.fontFamily != FontFamily.rustam) ...[
-                      const _ThinDivider(),
-                      _SegmentedRow(
-                        label: 'سماكة الخط',
-                        child: SegmentedButton<FontWeight>(
-                          segments: const [
-                            ButtonSegment(
-                              value: FontWeight.w500,
-                              label: Text('عادي'),
-                            ),
-                            ButtonSegment(
-                              value: FontWeight.w600,
-                              label: Text('عريض'),
-                            ),
-                          ],
-                          style: _segmentStyle(colorScheme),
-                          selected: {settingsController.fontWeight},
-                          onSelectionChanged: (newSet) {
-                            settingsController.fontWeight = newSet.first;
-                          },
-                        ),
-                      ),
-                    ],
                   ],
                 ),
 
-                const SizedBox(height: 20),
-                // ═══════════════════════════════════
-                // المظهر
-                // ═══════════════════════════════════
-                const _SectionHeader(
+                const SizedBox(height: 10),
+
+                _groupTile(
+                  key: const PageStorageKey('settings_group_appearance'),
                   icon: Icons.palette_outlined,
                   title: 'المظهر',
-                ),
-                _SettingsCard(
+                  subtitle: _appearanceSubtitle(context),
                   children: [
-                    // Theme preset picker
-                    if (settingsController.supportsDynamicColor) ...[
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: ThemeTilesPicker(
-                          selected: settingsController.appTheme,
-                          onChanged: (theme) =>
-                              settingsController.appTheme = theme,
-                          supportsDynamic:
-                              settingsController.supportsDynamicColor,
-                          deviceLightScheme:
-                              settingsController.deviceLightScheme,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: ThemeTilesPicker(
+                        selected: settingsController.appTheme,
+                        onChanged: (theme) =>
+                            settingsController.appTheme = theme,
+                        supportsDynamic:
+                            settingsController.supportsDynamicColor,
+                        deviceLightScheme: settingsController.deviceLightScheme,
                       ),
-
-                      const _ThinDivider(),
-                    ],
+                    ),
+                    const _ThinDivider(),
                     _ToggleRow(
                       icon: Icons.contrast,
-                      title: 'استخدام اللون الأسود لخلفية الوضع الداكن',
+                      title: 'خلفية سوداء للوضع الداكن',
                       subtitle: 'خلفية سوداء تماماً لشاشات AMOLED',
                       value: settingsController.useTrueBlackBgColor,
                       onChanged: (v) =>
@@ -241,13 +248,14 @@ class SettingsSheet extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
 
-                // ═══════════════════════════════════
-                // عام
-                // ═══════════════════════════════════
-                const _SectionHeader(icon: Icons.tune, title: 'عام'),
-                _SettingsCard(
+                const SizedBox(height: 10),
+
+                _groupTile(
+                  key: const PageStorageKey('settings_group_general'),
+                  icon: Icons.tune,
+                  title: 'عام',
+                  subtitle: _generalSubtitle(context),
                   children: [
                     _ToggleRow(
                       icon: Icons.swipe,
@@ -270,8 +278,7 @@ class SettingsSheet extends StatelessWidget {
                       icon: Icons.numbers_outlined,
                       title: 'عرض رقم الحزب',
                       subtitle:
-                          'يظهر رقم الحزب بدلاً من '
-                          'رقم الجزء في الشريط المُثبت.',
+                          'يظهر رقم الحزب بدلاً من رقم الجزء في الشريط المُثبت.',
                       value: !settingsController.hizbDisplay.isHidden,
                       onChanged: (displayed) =>
                           settingsController.hizbDisplay = displayed
@@ -291,12 +298,194 @@ class SettingsSheet extends StatelessWidget {
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 10),
+
+                //   _groupTile(
+                //     key: const PageStorageKey('settings_group_backup'),
+                //     icon: Icons.backup_outlined,
+                //     title: 'النسخ الاحتياطي',
+                //     subtitle: 'تصدير/استيراد العلامات والملاحظات',
+                //     children: [
+                //       _ActionRow(
+                //         icon: Icons.upload_file,
+                //         title: 'تصدير نسخة احتياطية',
+                //         subtitle: 'مشاركة ملف النسخة أو حفظه',
+                //         onTap: () async {
+                //           await BackupService().exportAndShare();
+                //         },
+                //       ),
+                //       const _ThinDivider(),
+                //       _ActionRow(
+                //         icon: Icons.download,
+                //         title: 'استيراد نسخة احتياطية',
+                //         subtitle: 'دمج مع البيانات الحالية أو استبدالها',
+                //         onTap: () async {
+                //           final backup = BackupService();
+                //           final file = await backup.pickBackupFile();
+                //           if (file == null) return;
+
+                //           final preview = await backup.preview(file);
+                //           if (!context.mounted) return;
+
+                //           final mode = await showDialog<ImportMode>(
+                //             context: context,
+                //             builder: (ctx) {
+                //               return Directionality(
+                //                 textDirection: TextDirection.rtl,
+                //                 child: AlertDialog(
+                //                   title: const Text('استيراد نسخة احتياطية'),
+                //                   content: Column(
+                //                     mainAxisSize: MainAxisSize.min,
+                //                     crossAxisAlignment: CrossAxisAlignment.start,
+                //                     children: [
+                //                       Text('التاريخ: ${preview.createdAt}'),
+                //                       const SizedBox(height: 8),
+                //                       Text('التصنيفات: ${preview.categoryCount}'),
+                //                       Text('العلامات: ${preview.bookmarkCount}'),
+                //                       Text('الملاحظات: ${preview.noteCount}'),
+                //                       const SizedBox(height: 12),
+                //                       const Text('اختر طريقة الاستيراد:'),
+                //                     ],
+                //                   ),
+                //                   actions: [
+                //                     TextButton(
+                //                       onPressed: () => Navigator.pop(ctx),
+                //                       child: const Text('إلغاء'),
+                //                     ),
+                //                     TextButton(
+                //                       onPressed: () =>
+                //                           Navigator.pop(ctx, ImportMode.merge),
+                //                       child: const Text('دمج'),
+                //                     ),
+                //                     FilledButton(
+                //                       onPressed: () =>
+                //                           Navigator.pop(ctx, ImportMode.replace),
+                //                       child: const Text('استبدال'),
+                //                     ),
+                //                   ],
+                //                 ),
+                //               );
+                //             },
+                //           );
+
+                //           if (mode == null) return;
+
+                //           if (!context.mounted) return;
+                //           showDialog(
+                //             context: context,
+                //             barrierDismissible: false,
+                //             builder: (_) =>
+                //                 const Center(child: CircularProgressIndicator()),
+                //           );
+
+                //           try {
+                //             await backup.import(file, mode: mode);
+                //             if (context.mounted) {
+                //               Navigator.pop(context); // close progress
+                //               ScaffoldMessenger.of(context).showSnackBar(
+                //                 const SnackBar(
+                //                   content: Text('✅ تم الاستيراد بنجاح'),
+                //                 ),
+                //               );
+                //             }
+                //           } catch (e) {
+                //             if (context.mounted) {
+                //               Navigator.pop(context); // close progress
+                //               ScaffoldMessenger.of(context).showSnackBar(
+                //                 SnackBar(content: Text('❌ فشل الاستيراد: $e')),
+                //               );
+                //             }
+                //           }
+                //         },
+                //       ),
+                //     ],
+                //   ),
               ],
             );
           },
         ),
       ),
     );
+  }
+
+  // ───────────────────────── helpers ─────────────────────────
+
+  Widget _groupTile({
+    required Key key,
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    bool initiallyExpanded = false,
+    required List<Widget> children,
+  }) {
+    return ExpansionTile(
+      key: key,
+      initiallyExpanded: initiallyExpanded,
+      leading: Icon(icon),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: subtitle == null ? null : Text(subtitle),
+      children: children,
+    );
+  }
+
+  String _fontSubtitle(BuildContext context, bool isWarsh) {
+    final size = fontController.fontSize.round();
+    final weight = settingsController.fontWeight == FontWeight.w600
+        ? 'عريض'
+        : 'عادي';
+    final family = isWarsh
+        ? 'ورش'
+        : (settingsController.fontFamily == FontFamily.rustam
+              ? 'خط المدينة'
+              : 'عثماني');
+    return 'الحجم: $size • السماكة: $weight • $family';
+  }
+
+  String _readingSubtitle(BuildContext context) {
+    final lh = fontController.isDefaultLineHeight
+        ? 'تلقائي'
+        : fontController.lineHeight!.toStringAsFixed(1);
+
+    final align = switch (settingsController.textAlign) {
+      TextAlignOption.justify => 'متساوي',
+      TextAlignOption.center => 'وسط',
+      TextAlignOption.start => 'يمين',
+    };
+
+    return 'ارتفاع الأسطر: $lh • المحاذاة: $align';
+  }
+
+  String _appearanceSubtitle(BuildContext context) {
+    // 1) Theme label (adjust mapping to your actual enum values)
+    final themeLabel = switch (settingsController.appTheme) {
+      // Example names — replace with your real enum cases
+      AppTheme.myQuran => 'الافتراضي',
+      AppTheme.dynamic => 'ديناميكي',
+      AppTheme.sepia => 'سيبيا',
+    };
+
+    // 2) Dynamic colors (only if device supports it)
+    final dynamicLabel = settingsController.supportsDynamicColor
+        ? 'ديناميكي'
+        : null;
+
+    // 3) True black
+    final amoledLabel = settingsController.useTrueBlackBgColor
+        ? 'AMOLED'
+        : null;
+
+    final parts = <String>[themeLabel, ?dynamicLabel, ?amoledLabel];
+
+    return parts.join(' • ');
+  }
+
+  String _generalSubtitle(BuildContext context) {
+    final book = settingsController.isHorizontalScrolling
+        ? 'وضع الكتاب'
+        : 'تمرير عمودي';
+    final screen = settingsController.keepScreenOn ? 'الشاشة مضاءة' : 'عادي';
+    return '$book • $screen';
   }
 
   ButtonStyle _segmentStyle(ColorScheme colorScheme) {
@@ -321,65 +510,9 @@ class SettingsSheet extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Section header
-// ─────────────────────────────────────────────────────────
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, right: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-// Card container
-// ─────────────────────────────────────────────────────────
-
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant.applyOpacity(0.3)),
-      ),
-      child: Column(children: children),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
-// Divider inside cards
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────
+// Divider inside groups
+// ─────────────────────────────────────────
 
 class _ThinDivider extends StatelessWidget {
   const _ThinDivider();
@@ -396,9 +529,9 @@ class _ThinDivider extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Stepper row: label on top, stepper below
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────
+// Stepper row (unchanged)
+// ─────────────────────────────────────────
 
 class _StepperRow extends StatelessWidget {
   const _StepperRow({
@@ -435,7 +568,7 @@ class _StepperRow extends StatelessWidget {
                 ),
               ),
               if (onReset != null && !isDefault) ...[
-                const SizedBox(width: 6),
+                const SizedBox(height: 6),
                 FilledButton.tonalIcon(
                   onPressed: onReset,
                   icon: const Icon(Icons.restore),
@@ -451,7 +584,6 @@ class _StepperRow extends StatelessWidget {
               ],
             ],
           ),
-
           const Spacer(),
           Container(
             height: 54,
@@ -463,7 +595,6 @@ class _StepperRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  visualDensity: VisualDensity.standard,
                   onPressed: onDecrease,
                   icon: Icon(
                     Icons.remove,
@@ -486,7 +617,6 @@ class _StepperRow extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  visualDensity: VisualDensity.standard,
                   onPressed: onIncrease,
                   icon: Icon(
                     Icons.add,
@@ -505,9 +635,9 @@ class _StepperRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Segmented row: label on top, segmented button below
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────
+// Segmented row (unchanged)
+// ─────────────────────────────────────────
 
 class _SegmentedRow extends StatelessWidget {
   const _SegmentedRow({required this.label, required this.child});
@@ -534,9 +664,40 @@ class _SegmentedRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────
-// Toggle row: icon + title + subtitle + switch
-// ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────
+// Action row (used for backup)
+// ─────────────────────────────────────────
+
+class _ActionRow extends StatelessWidget {
+  const _ActionRow({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return ListTile(
+      onTap: onTap,
+      leading: Icon(icon, color: colorScheme.primary),
+      title: Text(title),
+      subtitle: subtitle == null ? null : Text(subtitle!),
+      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+// Toggle row (kept as-is)
+// ─────────────────────────────────────────
 
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
@@ -567,7 +728,6 @@ class _ToggleRow extends StatelessWidget {
       ),
       child: InkWell(
         onTap: !enabled ? null : () => onChanged(!value),
-        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding:
               padding ??

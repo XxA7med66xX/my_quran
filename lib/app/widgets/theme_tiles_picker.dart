@@ -31,6 +31,17 @@ class ThemeTilesPicker extends StatelessWidget {
           isSelected: selected == AppTheme.myQuran,
           onTap: () => onChanged(AppTheme.myQuran),
         ),
+        _ThemeTile(
+          title: 'سيبيا',
+          description: 'ألوان مشابهة للورق، مريحة للعين',
+          icon: Icons.menu_book_sharp,
+          previewColors: (
+            bg: const Color(0xFFF2E7DA),
+            accent: const Color(0xFF7A5A3A),
+          ),
+          isSelected: selected == AppTheme.sepia,
+          onTap: () => onChanged(AppTheme.sepia),
+        ),
 
         if (supportsDynamic)
           _ThemeTile(

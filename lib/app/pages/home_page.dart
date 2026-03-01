@@ -453,7 +453,7 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       context: context,
                       showDragHandle: false,
                       isScrollControlled: true,
-                      barrierColor: Colors.black12,
+                      barrierColor: Colors.black38,
                       constraints: BoxConstraints(
                         maxHeight: MediaQuery.of(context).size.height * .6,
                       ),
@@ -689,7 +689,7 @@ class _QuranPageWidgetState extends State<QuranPageWidget> {
     } else if (fontSize >= 27) {
       base = screenWidth > 600 ? 12 : 20;
     } else {
-      base = 8;
+      base = 14;
     }
 
     // In landscape, add extra padding proportional to screen width

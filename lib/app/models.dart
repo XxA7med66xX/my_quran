@@ -221,6 +221,7 @@ enum FontFamily {
 
 enum AppTheme {
   myQuran,
+  sepia,
   dynamic, // device Material You
 }
 

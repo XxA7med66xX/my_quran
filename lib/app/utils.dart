@@ -36,6 +36,10 @@ extension ThemeContext on BuildContext {
       context.isDarkMode
           ? (bg: const Color(0xFF0e1514), text: const Color(0xFFdde4e2))
           : (bg: Colors.white, text: Colors.black),
+    AppTheme.sepia =>
+      context.isDarkMode
+          ? (bg: const Color(0xFFF2E7DA), text: const Color(0xFF17110D))
+          : (bg: const Color(0xFFF7F0E6), text: const Color(0xFF1A1410)),
 
     AppTheme.dynamic => (
       bg: context.colorScheme.surface,
