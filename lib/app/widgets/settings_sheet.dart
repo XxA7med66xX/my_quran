@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:my_quran/app/font_size_controller.dart';
 import 'package:my_quran/app/models.dart';
-// import 'package:my_quran/app/services/backup_service.dart';
+import 'package:my_quran/app/services/backup_service.dart';
 import 'package:my_quran/app/services/search_service.dart';
 import 'package:my_quran/app/settings_controller.dart';
 import 'package:my_quran/app/utils.dart';
@@ -301,106 +301,106 @@ class SettingsSheet extends StatelessWidget {
 
                 const SizedBox(height: 10),
 
-                //   _groupTile(
-                //     key: const PageStorageKey('settings_group_backup'),
-                //     icon: Icons.backup_outlined,
-                //     title: 'النسخ الاحتياطي',
-                //     subtitle: 'تصدير/استيراد العلامات والملاحظات',
-                //     children: [
-                //       _ActionRow(
-                //         icon: Icons.upload_file,
-                //         title: 'تصدير نسخة احتياطية',
-                //         subtitle: 'مشاركة ملف النسخة أو حفظه',
-                //         onTap: () async {
-                //           await BackupService().exportAndShare();
-                //         },
-                //       ),
-                //       const _ThinDivider(),
-                //       _ActionRow(
-                //         icon: Icons.download,
-                //         title: 'استيراد نسخة احتياطية',
-                //         subtitle: 'دمج مع البيانات الحالية أو استبدالها',
-                //         onTap: () async {
-                //           final backup = BackupService();
-                //           final file = await backup.pickBackupFile();
-                //           if (file == null) return;
+                _groupTile(
+                  key: const PageStorageKey('settings_group_backup'),
+                  icon: Icons.backup_outlined,
+                  title: 'النسخ الاحتياطي',
+                  subtitle: 'تصدير/استيراد العلامات والملاحظات',
+                  children: [
+                    _ActionRow(
+                      icon: Icons.upload_file,
+                      title: 'تصدير نسخة احتياطية',
+                      subtitle: 'مشاركة ملف النسخة أو حفظه',
+                      onTap: () async {
+                        await BackupService().exportAndShare();
+                      },
+                    ),
+                    const _ThinDivider(),
+                    _ActionRow(
+                      icon: Icons.download,
+                      title: 'استيراد نسخة احتياطية',
+                      subtitle: 'دمج مع البيانات الحالية أو استبدالها',
+                      onTap: () async {
+                        final backup = BackupService();
+                        final file = await backup.pickBackupFile();
+                        if (file == null) return;
 
-                //           final preview = await backup.preview(file);
-                //           if (!context.mounted) return;
+                        final preview = await backup.preview(file);
+                        if (!context.mounted) return;
 
-                //           final mode = await showDialog<ImportMode>(
-                //             context: context,
-                //             builder: (ctx) {
-                //               return Directionality(
-                //                 textDirection: TextDirection.rtl,
-                //                 child: AlertDialog(
-                //                   title: const Text('استيراد نسخة احتياطية'),
-                //                   content: Column(
-                //                     mainAxisSize: MainAxisSize.min,
-                //                     crossAxisAlignment: CrossAxisAlignment.start,
-                //                     children: [
-                //                       Text('التاريخ: ${preview.createdAt}'),
-                //                       const SizedBox(height: 8),
-                //                       Text('التصنيفات: ${preview.categoryCount}'),
-                //                       Text('العلامات: ${preview.bookmarkCount}'),
-                //                       Text('الملاحظات: ${preview.noteCount}'),
-                //                       const SizedBox(height: 12),
-                //                       const Text('اختر طريقة الاستيراد:'),
-                //                     ],
-                //                   ),
-                //                   actions: [
-                //                     TextButton(
-                //                       onPressed: () => Navigator.pop(ctx),
-                //                       child: const Text('إلغاء'),
-                //                     ),
-                //                     TextButton(
-                //                       onPressed: () =>
-                //                           Navigator.pop(ctx, ImportMode.merge),
-                //                       child: const Text('دمج'),
-                //                     ),
-                //                     FilledButton(
-                //                       onPressed: () =>
-                //                           Navigator.pop(ctx, ImportMode.replace),
-                //                       child: const Text('استبدال'),
-                //                     ),
-                //                   ],
-                //                 ),
-                //               );
-                //             },
-                //           );
+                        final mode = await showDialog<ImportMode>(
+                          context: context,
+                          builder: (ctx) {
+                            return Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: AlertDialog(
+                                title: const Text('استيراد نسخة احتياطية'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('التاريخ: ${preview.createdAt}'),
+                                    const SizedBox(height: 8),
+                                    Text('التصنيفات: ${preview.categoryCount}'),
+                                    Text('العلامات: ${preview.bookmarkCount}'),
+                                    Text('الملاحظات: ${preview.noteCount}'),
+                                    const SizedBox(height: 12),
+                                    const Text('اختر طريقة الاستيراد:'),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('إلغاء'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () =>
+                                        Navigator.pop(ctx, ImportMode.merge),
+                                    child: const Text('دمج'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () =>
+                                        Navigator.pop(ctx, ImportMode.replace),
+                                    child: const Text('استبدال'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
 
-                //           if (mode == null) return;
+                        if (mode == null) return;
 
-                //           if (!context.mounted) return;
-                //           showDialog(
-                //             context: context,
-                //             barrierDismissible: false,
-                //             builder: (_) =>
-                //                 const Center(child: CircularProgressIndicator()),
-                //           );
+                        if (!context.mounted) return;
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) =>
+                              const Center(child: CircularProgressIndicator()),
+                        );
 
-                //           try {
-                //             await backup.import(file, mode: mode);
-                //             if (context.mounted) {
-                //               Navigator.pop(context); // close progress
-                //               ScaffoldMessenger.of(context).showSnackBar(
-                //                 const SnackBar(
-                //                   content: Text('✅ تم الاستيراد بنجاح'),
-                //                 ),
-                //               );
-                //             }
-                //           } catch (e) {
-                //             if (context.mounted) {
-                //               Navigator.pop(context); // close progress
-                //               ScaffoldMessenger.of(context).showSnackBar(
-                //                 SnackBar(content: Text('❌ فشل الاستيراد: $e')),
-                //               );
-                //             }
-                //           }
-                //         },
-                //       ),
-                //     ],
-                //   ),
+                        try {
+                          await backup.import(file, mode: mode);
+                          if (context.mounted) {
+                            Navigator.pop(context); // close progress
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('✅ تم الاستيراد بنجاح'),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context); // close progress
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('❌ فشل الاستيراد: $e')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ],
             );
           },

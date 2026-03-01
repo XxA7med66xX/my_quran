@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:my_quran/app/pages/notes_screen.dart';
 
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
@@ -374,9 +375,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
               systemOverlayStyle: isDarkMode
                   ? SystemUiOverlayStyle.light
                   : SystemUiOverlayStyle.dark,
-              titleSpacing: 4,
+              titleSpacing: 0,
               title: Row(
-                spacing: 5,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.search),
@@ -420,17 +420,28 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       );
                     },
                   ),
-                  Expanded(
-                    child: Text(
-                      'قرآني',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: context.colorScheme.secondary,
-                        fontFamily: FontFamily.rustam.name,
-                      ),
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.note_alt_outlined),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const NotesScreen(),
+                        ),
+                      );
+                    },
                   ),
+                  // Expanded(
+                  //   child: Text(
+                  //     'قرآني',
+                  //     textAlign: TextAlign.center,
+                  //     style: TextStyle(
+                  //       fontSize: 16,
+                  //       color: context.colorScheme.secondary,
+                  //       fontFamily: FontFamily.rustam.name,
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
               backgroundColor: Colors.transparent,

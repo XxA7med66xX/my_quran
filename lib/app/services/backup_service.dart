@@ -1,0 +1,322 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+import 'package:my_quran/app/services/bookmark_service.dart';
+import 'package:my_quran/app/services/notes_service.dart';
+import 'package:my_quran/app/models.dart';
+
+enum ImportMode { merge, replace }
+
+class BackupPreview {
+  const BackupPreview({
+    required this.createdAt,
+    required this.schemaVersion,
+    required this.bookmarkCount,
+    required this.categoryCount,
+    required this.noteCount,
+    required this.appVersion,
+    required this.appBuild,
+  });
+
+  final DateTime createdAt;
+  final int schemaVersion;
+  final int categoryCount;
+  final int bookmarkCount;
+  final int noteCount;
+  final String? appVersion;
+  final int? appBuild;
+}
+
+class BackupService {
+  static const String schema = 'com.my_quran.backup';
+  static const int schemaVersion = 1;
+
+  final BookmarkService _bookmarkService = BookmarkService();
+  final NotesService _notesService = NotesService();
+  static const _appVersionDefine = String.fromEnvironment('APP_VERSION');
+  static const _appBuildDefine = String.fromEnvironment('APP_BUILD');
+
+  String get appVersionForBackup => _appVersionDefine.startsWith('v')
+      ? _appVersionDefine.substring(1)
+      : _appVersionDefine;
+
+  int? get appBuildForBackup => int.tryParse(_appBuildDefine);
+  // ---------- Public API ----------
+
+  Future<void> exportAndShare() async {
+    final bytes = await _exportBytes();
+
+    final appVersion = appVersionForBackup;
+    final appBuild = appBuildForBackup;
+
+    final dir = await getTemporaryDirectory();
+    final safeVersion = appVersion.isEmpty ? 'unknown' : appVersion;
+    final safeBuild = appBuild == null ? '0' : appBuild.toString();
+
+    final fileName =
+        'my_quran-backup-v$schemaVersion-$safeVersion+$safeBuild-'
+        '${DateTime.now().toIso8601String().replaceAll(':', '-')}.json.gz';
+
+    final file = File('${dir.path}/$fileName');
+    await file.writeAsBytes(bytes, flush: true);
+
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path, mimeType: 'application/gzip')],
+        subject: 'My Quran Backup',
+        text: 'Backup file (bookmarks + notes).',
+      ),
+    );
+  }
+
+  Future<File?> pickBackupFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['gz', 'json'],
+    );
+    if (result == null || result.files.isEmpty) return null;
+    final path = result.files.single.path;
+    if (path == null) return null;
+    return File(path);
+  }
+
+  Future<BackupPreview> preview(File file) async {
+    final doc = await _readBackupDoc(file);
+    final data = doc['data'] as Map<String, dynamic>? ?? const {};
+
+    final cats =
+        (data['bookmarkCategories'] as List<dynamic>? ?? const []).length;
+    final bms = (data['bookmarks'] as List<dynamic>? ?? const []).length;
+    final nts = (data['notes'] as List<dynamic>? ?? const []).length;
+
+    return BackupPreview(
+      createdAt:
+          DateTime.tryParse(doc['createdAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      schemaVersion: doc['schemaVersion'] as int? ?? 0,
+      categoryCount: cats,
+      bookmarkCount: bms,
+      noteCount: nts,
+      appVersion: (doc['app'] as Map?)?['version'] as String?,
+      appBuild: ((doc['app'] as Map?)?['build'] as num?)?.toInt(),
+    );
+  }
+
+  Future<void> import(File file, {required ImportMode mode}) async {
+    final doc = await _readBackupDoc(file);
+
+    final ver = doc['schemaVersion'] as int? ?? 0;
+    if (ver != schemaVersion) {
+      throw StateError(
+        'Unsupported backup schemaVersion=$ver (supported=$schemaVersion)',
+      );
+    }
+
+    final data = doc['data'] as Map<String, dynamic>? ?? const {};
+
+    final importedCategories =
+        (data['bookmarkCategories'] as List<dynamic>? ?? const [])
+            .map((e) => BookmarkCategory.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+    final importedBookmarks = (data['bookmarks'] as List<dynamic>? ?? const [])
+        .map((e) => VerseBookmark.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final importedNotes = (data['notes'] as List<dynamic>? ?? const [])
+        .map((e) => VerseNote.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    // Ensure default category exists
+    final hasDefault = importedCategories.any((c) => c.id == 'default');
+    final fixedCategories = hasDefault
+        ? importedCategories
+        : [
+            ...importedCategories,
+            ...BookmarkService.defaultCategories.where(
+              (c) => c.id == 'default',
+            ),
+          ];
+
+    // Remap bookmarks with unknown categoryId -> default
+    final categoryIds = fixedCategories.map((c) => c.id).toSet();
+    final fixedBookmarks = importedBookmarks
+        .map(
+          (b) => categoryIds.contains(b.categoryId)
+              ? b
+              : b.copyWith(categoryId: () => 'default'),
+        )
+        .toList();
+
+    if (mode == ImportMode.replace) {
+      await _replaceAll(
+        categories: fixedCategories,
+        bookmarks: _dedupeBookmarksByVerseKeepLast(fixedBookmarks),
+        notes: importedNotes,
+      );
+      return;
+    }
+
+    await _mergeAll(
+      categories: fixedCategories,
+      bookmarks: fixedBookmarks,
+      notes: importedNotes,
+    );
+  }
+
+  // ---------- Export implementation ----------
+  Future<List<int>> _exportBytes() async {
+    final categories = await _bookmarkService.getCategories();
+    final bookmarks = await _bookmarkService.getBookmarks();
+    final notes = await _notesService.getAllNotes();
+
+    final appVersion = appVersionForBackup;
+    final appBuild = appBuildForBackup;
+
+    final doc = <String, dynamic>{
+      'schema': schema,
+      'schemaVersion': schemaVersion,
+      'createdAt': DateTime.now().toUtc().toIso8601String(),
+      if (appVersion.isNotEmpty || appBuild != null)
+        'app': {
+          if (appVersion.isNotEmpty) 'version': appVersion,
+          'build': ?appBuild,
+        },
+      'data': {
+        'bookmarkCategories': categories.map((c) => c.toJson()).toList(),
+        'bookmarks': bookmarks.map((b) => b.toJson()).toList(),
+        'notes': notes.map((n) => n.toJson()).toList(),
+      },
+    };
+
+    final raw = utf8.encode(jsonEncode(doc));
+    return gzip.encode(raw);
+  }
+
+  // ---------- Import implementation (read/validate) ----------
+
+  Future<Map<String, dynamic>> _readBackupDoc(File file) async {
+    final bytes = await file.readAsBytes();
+    final decoded = _decodeMaybeGzip(bytes);
+
+    final obj = jsonDecode(utf8.decode(decoded));
+    if (obj is! Map<String, dynamic>) {
+      throw const FormatException('Backup root is not a JSON object');
+    }
+
+    if (obj['schema'] != schema) {
+      throw FormatException('Invalid schema: ${obj['schema']}');
+    }
+
+    return obj;
+  }
+
+  List<int> _decodeMaybeGzip(List<int> bytes) {
+    final isGz = bytes.length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B;
+    return isGz ? gzip.decode(bytes) : bytes;
+  }
+
+  // ---------- Apply strategies ----------
+
+  Future<void> _replaceAll({
+    required List<BookmarkCategory> categories,
+    required List<VerseBookmark> bookmarks,
+    required List<VerseNote> notes,
+  }) async {
+    // Replace categories & bookmarks via existing BookmarkService API
+    await _bookmarkService.replaceCategories(categories);
+    await _bookmarkService.replaceBookmarks(bookmarks);
+
+    await _notesService.replaceAll(notes);
+  }
+
+  Future<void> _mergeAll({
+    required List<BookmarkCategory> categories,
+    required List<VerseBookmark> bookmarks,
+    required List<VerseNote> notes,
+  }) async {
+    // Categories: add missing ones, keep local versions for existing ids.
+    final localCats = await _bookmarkService.getCategories();
+    final localCatIds = localCats.map((c) => c.id).toSet();
+    final mergedCats = [
+      ...localCats,
+      ...categories.where((c) => !localCatIds.contains(c.id)),
+    ];
+    await _bookmarkService.replaceCategories(mergedCats);
+
+    // Bookmarks: merge by verse (enforce one bookmark per verse)
+    final localBms = await _bookmarkService.getBookmarks();
+    final mergedBms = _mergeBookmarksByVerse(localBms, bookmarks);
+    await _bookmarkService.replaceBookmarks(mergedBms);
+
+    // Notes: merge by id (allow multiple per verse)
+    final localNotes = await _notesService.getAllNotes();
+    final mergedNotes = _mergeById<VerseNote>(
+      local: localNotes,
+      incoming: notes,
+      idOf: (n) => n.id,
+      updatedAtOf: (n) => n.updatedAt,
+    );
+    await _notesService.replaceAll(mergedNotes);
+  }
+
+  List<VerseBookmark> _mergeBookmarksByVerse(
+    List<VerseBookmark> local,
+    List<VerseBookmark> incoming,
+  ) {
+    final map = <String, VerseBookmark>{
+      for (final b in local) '${b.surah}:${b.verse}': b,
+    };
+
+    for (final b in incoming) {
+      final key = '${b.surah}:${b.verse}';
+      final existing = map[key];
+      if (existing == null) {
+        map[key] = b;
+      } else {
+        // last-write-wins using updatedAt
+        if (b.updatedAt.isAfter(existing.updatedAt)) {
+          map[key] = b;
+        }
+      }
+    }
+
+    return map.values.toList();
+  }
+
+  List<T> _mergeById<T>({
+    required List<T> local,
+    required List<T> incoming,
+    required String Function(T) idOf,
+    required DateTime Function(T) updatedAtOf,
+  }) {
+    final map = <String, T>{for (final x in local) idOf(x): x};
+    for (final x in incoming) {
+      final id = idOf(x);
+      final existing = map[id];
+      if (existing == null) {
+        map[id] = x;
+      } else {
+        // last write wins
+        if (updatedAtOf(x).isAfter(updatedAtOf(existing))) {
+          map[id] = x;
+        }
+      }
+    }
+    return map.values.toList();
+  }
+
+  List<VerseBookmark> _dedupeBookmarksByVerseKeepLast(
+    List<VerseBookmark> items,
+  ) {
+    final map = <String, VerseBookmark>{};
+    for (final b in items) {
+      map['${b.surah}:${b.verse}'] = b;
+    }
+    return map.values.toList();
+  }
+}

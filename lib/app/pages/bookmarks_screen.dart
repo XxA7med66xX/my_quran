@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:my_quran/app/pages/bookmark_categories_page.dart';
+import 'package:my_quran/app/services/notes_service.dart';
 import 'package:my_quran/app/settings_controller.dart';
 import 'package:my_quran/app/widgets/edit_note_dialog.dart';
+import 'package:my_quran/app/widgets/verse_notes_sheet.dart';
 
 import 'package:my_quran/quran/quran.dart';
 
@@ -36,6 +38,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   List<BookmarkCategory> _categories = [];
   String? _selectedCategoryId; // null = show all
   bool _loading = true;
+  final _notesService = NotesService();
+  Map<String, List<VerseNote>> _notesByVerse = {};
 
   @override
   void initState() {
@@ -52,13 +56,24 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
   Future<void> _load() async {
     final bookmarks = await _bookmarkService.getBookmarks();
     final categories = await _bookmarkService.getCategories();
+    final notes = await _notesService.getAllNotes();
 
-    // Sort by creation date, newest first
+    // newest first
     bookmarks.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final map = <String, List<VerseNote>>{};
+    for (final n in notes) {
+      final key = '${n.surah}:${n.verse}';
+      (map[key] ??= []).add(n);
+    }
+    for (final e in map.entries) {
+      e.value.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    }
 
     setState(() {
       _allBookmarks = bookmarks;
       _categories = categories;
+      _notesByVerse = map;
       _loading = false;
     });
   }
@@ -257,7 +272,10 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     final previewText = verseText.length > 100
         ? '${verseText.substring(0, 100)}...'
         : verseText;
-
+    final verseKey = '${bookmark.surah}:${bookmark.verse}';
+    final verseNotes = _notesByVerse[verseKey] ?? const [];
+    final notesCount = verseNotes.length;
+    final latestPreview = notesCount > 0 ? verseNotes.first.text : null;
     return Dismissible(
       key: Key(bookmark.id),
       direction: DismissDirection.endToStart,
@@ -367,6 +385,16 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                             ],
                           ),
                         ),
+                        const PopupMenuItem(
+                          value: 'notes',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_note_outlined, size: 20),
+                              SizedBox(width: 8),
+                              Text('الملاحظات'),
+                            ],
+                          ),
+                        ),
                         PopupMenuItem(
                           value: 'delete',
                           child: Row(
@@ -417,38 +445,39 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(
-                    vertical: (bookmark.note?.isEmpty ?? true) ? 0 : 3,
+                    vertical: notesCount > 0 ? 3 : 0,
                   ),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      if (bookmark.note?.isNotEmpty ?? false)
-                        Flexible(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(
-                              bookmark.note!,
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    height: 1.5,
-                                  ),
-                            ),
-                          ),
-                        )
-                      else
-                        const Spacer(),
-                      TextButton.icon(
-                        icon: const Icon(Icons.edit_note_outlined),
-                        label: (bookmark.note?.isNotEmpty ?? false)
-                            ? const Text('تعديل')
-                            : const Text('تسجيل ملاحظة'),
-                        onPressed: () => _onMenuAction('edit_note', bookmark),
+                      Icon(
+                        Icons.edit_note_outlined,
+                        size: 18,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          notesCount == 0
+                              ? 'لا توجد ملاحظات'
+                              : 'ملاحظات: ${getArabicNumber(notesCount)}'
+                                    '${latestPreview != null ? ' • ${latestPreview.replaceAll('\n', ' ')}' : ''}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.5,
+                              ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            _openNotesForVerse(bookmark.surah, bookmark.verse),
+
+                        child: Text(notesCount == 0 ? 'إضافة' : 'عرض'),
                       ),
                     ],
                   ),
@@ -488,8 +517,8 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
 
   void _onMenuAction(String action, VerseBookmark bookmark) {
     switch (action) {
-      case 'edit_note':
-        _editNote(bookmark);
+      case 'notes':
+        _openNotesSheet(bookmark.surah, bookmark.verse);
       case 'change_category':
         _changeCategory(bookmark);
       case 'delete':
@@ -497,16 +526,43 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
     }
   }
 
-  Future<void> _editNote(VerseBookmark bookmark) async {
-    final result = await showEditNoteDialog(context, bookmark);
+  Future<void> _openNotesForVerse(int surah, int verse) async {
+    final key = '$surah:$verse';
+    final notes = _notesByVerse[key] ?? const <VerseNote>[];
 
-    if (result == null) return;
+    if (notes.isEmpty) {
+      await _quickAddNote(surah, verse); // 1 tap add
+      return;
+    }
 
-    final updatedNote = result.trim();
-    final updated = bookmark.copyWith(note: () => updatedNote);
-    await _bookmarkService.updateBookmark(updated);
+    await _openNotesSheet(surah, verse); // manage + add more notes
+  }
 
-    await _reloadAndNotify();
+  Future<void> _openNotesSheet(int surah, int verse) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: VerseNotesSheet(
+            surah: surah,
+            verse: verse,
+            onChanged: _reloadAndNotify, // refresh cache + notify parent
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _quickAddNote(int surah, int verse) async {
+    final res = await showEditNoteDialog(context); // your new dialog API
+    if (res == null || res.action != NoteDialogAction.save) return;
+
+    await _notesService.addNote(surah: surah, verse: verse, text: res.text!);
+
+    await _reloadAndNotify(); // reload bookmarks + notes map
   }
 
   Future<void> _changeCategory(VerseBookmark bookmark) async {
