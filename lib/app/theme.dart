@@ -69,8 +69,8 @@ ThemeData _buildMyQuranDark() {
 }
 
 ThemeData _buildDynamicLight(ColorScheme? deviceScheme) {
-  final colorScheme =
-      deviceScheme ?? ColorScheme.fromSeed(seedColor: Colors.blue);
+  final seedColor = deviceScheme?.primary ?? Colors.blue;
+  final colorScheme = ColorScheme.fromSeed(seedColor: seedColor);
   return ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
@@ -79,9 +79,11 @@ ThemeData _buildDynamicLight(ColorScheme? deviceScheme) {
 }
 
 ThemeData _buildDynamicDark(ColorScheme? deviceScheme) {
-  final colorScheme =
-      deviceScheme ??
-      ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark);
+  final seedColor = deviceScheme?.primary ?? Colors.blue;
+  final colorScheme = ColorScheme.fromSeed(
+    seedColor: seedColor,
+    brightness: Brightness.dark,
+  );
   return ThemeData(
     useMaterial3: true,
     colorScheme: colorScheme,
