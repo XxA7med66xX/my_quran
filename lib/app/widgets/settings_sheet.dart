@@ -28,7 +28,7 @@ class SettingsSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: context.colorScheme.surfaceContainerHigh,
+          color: context.colorScheme.surfaceContainer,
         ),
         child: ListenableBuilder(
           listenable: Listenable.merge([fontController, settingsController]),
@@ -278,7 +278,8 @@ class SettingsSheet extends StatelessWidget {
                       icon: Icons.numbers_outlined,
                       title: 'عرض رقم الحزب',
                       subtitle:
-                          'يظهر رقم الحزب بدلاً من رقم الجزء في الشريط المُثبت.',
+                          'يظهر رقم الحزب بدلاً من '
+                          'رقم الجزء في الشريط المُثبت.',
                       value: !settingsController.hizbDisplay.isHidden,
                       onChanged: (displayed) =>
                           settingsController.hizbDisplay = displayed
@@ -372,11 +373,14 @@ class SettingsSheet extends StatelessWidget {
                         if (mode == null) return;
 
                         if (!context.mounted) return;
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (_) =>
-                              const Center(child: CircularProgressIndicator()),
+                        unawaited(
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
                         );
 
                         try {
@@ -415,14 +419,16 @@ class SettingsSheet extends StatelessWidget {
     required Key key,
     required IconData icon,
     required String title,
-    String? subtitle,
-    bool initiallyExpanded = false,
     required List<Widget> children,
+    String? subtitle,
+    Color? backgroundColor,
+    bool initiallyExpanded = false,
   }) {
     return ExpansionTile(
       key: key,
       initiallyExpanded: initiallyExpanded,
       leading: Icon(icon),
+      backgroundColor: backgroundColor,
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: subtitle == null ? null : Text(subtitle),
       children: children,
@@ -457,25 +463,17 @@ class SettingsSheet extends StatelessWidget {
   }
 
   String _appearanceSubtitle(BuildContext context) {
-    // 1) Theme label (adjust mapping to your actual enum values)
     final themeLabel = switch (settingsController.appTheme) {
-      // Example names — replace with your real enum cases
       AppTheme.myQuran => 'الافتراضي',
-      AppTheme.dynamic => 'ديناميكي',
+      AppTheme.dynamic => 'ألوان الجهاز',
       AppTheme.sepia => 'سيبيا',
     };
 
-    // 2) Dynamic colors (only if device supports it)
-    final dynamicLabel = settingsController.supportsDynamicColor
-        ? 'ديناميكي'
-        : null;
-
-    // 3) True black
     final amoledLabel = settingsController.useTrueBlackBgColor
         ? 'AMOLED'
         : null;
 
-    final parts = <String>[themeLabel, ?dynamicLabel, ?amoledLabel];
+    final parts = <String>[themeLabel, ?amoledLabel];
 
     return parts.join(' • ');
   }
@@ -484,8 +482,8 @@ class SettingsSheet extends StatelessWidget {
     final book = settingsController.isHorizontalScrolling
         ? 'وضع الكتاب'
         : 'تمرير عمودي';
-    final screen = settingsController.keepScreenOn ? 'الشاشة مضاءة' : 'عادي';
-    return '$book • $screen';
+    final screen = settingsController.keepScreenOn ? 'الشاشة مضاءة' : null;
+    return [book, ?screen].join(' • ');
   }
 
   ButtonStyle _segmentStyle(ColorScheme colorScheme) {

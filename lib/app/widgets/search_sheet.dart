@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 
 import 'package:my_quran/app/models.dart';
 import 'package:my_quran/app/search/processor.dart';
+import 'package:my_quran/app/services/search_service.dart';
 import 'package:my_quran/app/utils.dart';
 import 'package:my_quran/quran/quran.dart';
-import 'package:my_quran/app/search/models.dart';
-import 'package:my_quran/app/services/search_service.dart';
 
 class QuranSearchBottomSheet extends StatefulWidget {
   const QuranSearchBottomSheet({
@@ -16,48 +15,78 @@ class QuranSearchBottomSheet extends StatefulWidget {
     required this.onNavigateToPage,
     super.key,
   });
+
   final void Function(int page, {int? surah, int? verse}) onNavigateToPage;
   final FontFamily verseFontFamily;
+
   @override
   State<QuranSearchBottomSheet> createState() => _QuranSearchBottomSheetState();
 }
 
 class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
   final TextEditingController _controller = TextEditingController();
-  List<SearchResult> _results = [];
-  bool _isSearching = false;
-  bool _isExactMatch = false;
-  // Debounce timer to prevent search on every keystroke
   Timer? _debounce;
-  Set<String> _currentQueryTokens = {};
+
+  bool _isSearching = false;
+
+  SearchMatchMode _matchMode = SearchMatchMode.auto;
+  SearchOperator _operator = SearchOperator.and;
+
+  SearchResponse _response = const SearchResponse(
+    hits: [],
+    effectiveMode: SearchMatchMode.auto,
+    normalizedQueryTokens: {},
+    operatorUsed: SearchOperator.and,
+    isTruncated: false,
+    totalHits: 0,
+  );
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _onSearchChanged(String query) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
       _performSearch(query);
     });
   }
 
-  void _performSearch(String query) {
+  int _searchSeq = 0;
+
+  Future<void> _performSearch(String query) async {
+    final mySeq = ++_searchSeq;
+
     if (query.trim().isEmpty) {
       setState(() {
-        _results = [];
+        _response = const SearchResponse(
+          hits: [],
+          effectiveMode: SearchMatchMode.auto,
+          normalizedQueryTokens: {},
+          operatorUsed: SearchOperator.and,
+          isTruncated: false,
+          totalHits: 0,
+        );
         _isSearching = false;
-        _currentQueryTokens = {};
       });
       return;
     }
 
     setState(() => _isSearching = true);
 
-    final rawTokens = ArabicTextProcessor.tokenize(query);
-    _currentQueryTokens = rawTokens.toSet();
+    final resp = await SearchService.search(
+      query,
+      mode: _matchMode,
+      operator: _operator,
+    );
 
-    // Pass the toggle value to the service
-    final results = SearchService.search(query, exactMatch: _isExactMatch);
+    if (!mounted || mySeq != _searchSeq) return; // stale result
 
     setState(() {
-      _results = results;
+      _response = resp;
       _isSearching = false;
     });
   }
@@ -65,6 +94,8 @@ class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final hits = _response.hits;
+
     return SizedBox(
       height: MediaQuery.of(context).size.height * 0.85,
       child: Column(
@@ -88,7 +119,6 @@ class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
                           _controller.clear();
                           _onSearchChanged('');
                         },
-                        onLongPress: () {},
                       )
                     : null,
                 border: OutlineInputBorder(
@@ -103,51 +133,11 @@ class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
             ),
           ),
 
-          // FILTER CHIP (Exact Match Toggle)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-            child: Row(
-              children: [
-                FilterChip(
-                  label: const Text('إظهار النتائج المطابقة فقط'),
-                  selected: _isExactMatch,
-                  onSelected: (bool selected) {
-                    setState(() {
-                      _isExactMatch = selected;
-                    });
-                    // Re-run search immediately with new setting
-                    _performSearch(_controller.text);
-                  },
+          _buildFiltersBar(context),
 
-                  labelStyle: TextStyle(
-                    color: _isExactMatch
-                        ? colorScheme.onPrimary
-                        : colorScheme.onSurfaceVariant,
-                  ),
-                  selectedColor: colorScheme.primary,
-                  checkmarkColor: colorScheme.onPrimary,
-                ),
-
-                if (_results.isNotEmpty) ...[
-                  Expanded(
-                    child: Text(
-                      'عدد النتائج: ${_results.length}',
-                      textAlign: TextAlign.end,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
           // --- Results List ---
           Expanded(
-            child:
-                _results.isEmpty && _controller.text.isNotEmpty && !_isSearching
+            child: hits.isEmpty && _controller.text.isNotEmpty && !_isSearching
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -165,38 +155,149 @@ class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
                       ],
                     ),
                   )
-                : ListView.separated(
-                    itemCount: _results.length,
-                    separatorBuilder: (c, i) =>
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                    itemBuilder: (context, index) {
-                      final result = _results[index];
-                      return SearchResultItem(
-                        verseFontFamily: widget.verseFontFamily,
-                        queryTokens: _currentQueryTokens,
-                        result: result,
-                        highlightExactMatchOnly: _isExactMatch,
-                        query: _controller.text,
-                        onTap: () {
-                          // 1. Close Sheet
-                          Navigator.pop(context);
+                : Stack(
+                    children: [
+                      ListView.separated(
+                        itemCount: hits.length,
+                        separatorBuilder: (c, i) =>
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                        itemBuilder: (context, index) {
+                          final hit = hits[index];
+                          return SearchResultItem(
+                            verseFontFamily: widget.verseFontFamily,
+                            hit: hit,
+                            effectiveMode: _response.effectiveMode,
+                            onTap: () {
+                              Navigator.pop(context);
 
-                          // 2. Calculate Page Number
-                          final page = Quran.instance.getPageNumber(
-                            result.surah,
-                            result.verse,
-                          );
+                              final page = Quran.instance.getPageNumber(
+                                hit.surah,
+                                hit.verse,
+                              );
 
-                          // 3. Navigate with Highlight Info
-                          widget.onNavigateToPage(
-                            page,
-                            surah: result.surah,
-                            verse: result.verse,
+                              widget.onNavigateToPage(
+                                page,
+                                surah: hit.surah,
+                                verse: hit.verse,
+                              );
+                            },
                           );
                         },
-                      );
-                    },
+                      ),
+                      if (_isSearching)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          child: LinearProgressIndicator(
+                            minHeight: 2,
+                            color: colorScheme.primary,
+                            backgroundColor: Colors.transparent,
+                          ),
+                        ),
+                    ],
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFiltersBar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final tokensCount = ArabicTextProcessor.tokenize(
+      _controller.text,
+    ).map(ArabicTextProcessor.normalize).where((t) => t.isNotEmpty).length;
+
+    final showOperator = tokensCount >= 2;
+
+    final shown = _response.hits.length;
+    final total = _response.totalHits;
+
+    // When Auto is active, highlight the effective mode in
+    // the segmented control.
+    SearchMatchMode selectedModeForUi() {
+      if (!_matchMode.isAuto) return _matchMode;
+      return _response.effectiveMode == SearchMatchMode.auto
+          ? SearchMatchMode.prefix
+          : _response.effectiveMode;
+    }
+
+    String operatorLabel(SearchOperator op) => switch (op) {
+      SearchOperator.and => 'جميع الكلمات',
+      SearchOperator.or => 'أي كلمة',
+    };
+
+    Widget countWidget() {
+      if (total == 0) return const SizedBox.shrink();
+      return Text(
+        _response.isTruncated ? 'عرض $shown من $total' : 'عدد النتائج: $total',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+
+    void selectUserMode(SearchMatchMode m) {
+      setState(() => _matchMode = m);
+      _performSearch(_controller.text);
+    }
+
+    Widget modeSegmented() {
+      return SegmentedButton<SearchMatchMode>(
+        showSelectedIcon: false,
+        style: const ButtonStyle(visualDensity: VisualDensity.comfortable),
+        segments: const [
+          ButtonSegment(value: SearchMatchMode.exact, label: Text('مطابق')),
+          ButtonSegment(value: SearchMatchMode.prefix, label: Text('بداية')),
+          ButtonSegment(value: SearchMatchMode.contains, label: Text('داخل')),
+          ButtonSegment(value: SearchMatchMode.flexible, label: Text('مرن')),
+        ],
+        selected: {selectedModeForUi()},
+        onSelectionChanged: (v) => selectUserMode(v.first),
+      );
+    }
+
+    Widget operatorControl() {
+      return PopupMenuButton<SearchOperator>(
+        initialValue: _operator,
+        onSelected: (op) {
+          setState(() => _operator = op);
+          _performSearch(_controller.text);
+        },
+        itemBuilder: (_) => const [
+          PopupMenuItem(
+            value: SearchOperator.and,
+            child: Text('مطابقة: جميع الكلمات'),
+          ),
+          PopupMenuItem(
+            value: SearchOperator.or,
+            child: Text('مطابقة: أي كلمة'),
+          ),
+        ],
+        child: Chip(
+          avatar: const Icon(Icons.filter_alt_outlined, size: 18),
+          label: Text('مطابقة: ${operatorLabel(_operator)}'),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: [
+          modeSegmented(),
+
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 8,
+            children: [if (showOperator) operatorControl(), countWidget()],
           ),
         ],
       ),
@@ -207,24 +308,23 @@ class _QuranSearchBottomSheetState extends State<QuranSearchBottomSheet> {
 class SearchResultItem extends StatelessWidget {
   const SearchResultItem({
     required this.verseFontFamily,
-    required this.result,
-    required this.query,
+    required this.hit,
+    required this.effectiveMode,
     required this.onTap,
-    required this.queryTokens,
-    required this.highlightExactMatchOnly,
     super.key,
   });
 
-  final SearchResult result;
-  final Set<String> queryTokens;
-  final bool highlightExactMatchOnly;
-  final String query;
+  final SearchHit hit;
+  final SearchMatchMode effectiveMode;
   final VoidCallback onTap;
   final FontFamily verseFontFamily;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    final plain = Quran.instance.getVerseInPlainText(hit.surah, hit.verse);
+    final display = Quran.instance.getVerse(hit.surah, hit.verse);
 
     return InkWell(
       onTap: onTap,
@@ -246,16 +346,16 @@ class SearchResultItem extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    '${Quran.instance.getSurahNameArabic(result.surah)} - '
-                    '${result.verse}',
+                    '${Quran.instance.getSurahNameArabic(hit.surah)} - '
+                    '${getArabicNumber(hit.verse)}',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: colorScheme.onSurfaceVariant,
+                      fontFamily: FontFamily.arabicNumbersFontFamily.name,
                     ),
                   ),
                 ),
-
                 const Spacer(),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
@@ -266,17 +366,11 @@ class SearchResultItem extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            // --- Body: Highlighted Verse Text ---
             _HighlightedText(
-              debug: true,
-              plainText: Quran.instance.getVerseInPlainText(
-                result.surah,
-                result.verse,
-              ),
-              displayText: Quran.instance.getVerse(result.surah, result.verse),
-              query: query,
-              queryTokens: queryTokens,
-              highlightExactMatchOnly: highlightExactMatchOnly,
+              debug: kDebugMode,
+              plainText: plain,
+              displayText: display,
+              matchedPlainWordIndexes: hit.matchedWordIndexes.toSet(),
               highlightColor: colorScheme.primary,
               baseColor: colorScheme.onSurface,
               verseFontFamily: verseFontFamily,
@@ -293,51 +387,26 @@ class _HighlightedText extends StatelessWidget {
     required this.verseFontFamily,
     required this.plainText,
     required this.displayText,
-    required this.query,
+    required this.matchedPlainWordIndexes,
     required this.highlightColor,
     required this.baseColor,
-    required this.queryTokens,
-    required this.highlightExactMatchOnly,
     this.debug = false,
   });
 
   final String plainText;
   final String displayText;
-  final String query;
+  final Set<int> matchedPlainWordIndexes;
   final Color highlightColor;
   final Color baseColor;
-  final Set<String> queryTokens;
-  final bool highlightExactMatchOnly;
   final FontFamily verseFontFamily;
-
-  /// Enable to print mapping / matching diagnostics.
   final bool debug;
 
-  // ---------------- Debug helpers ----------------
   void _d(String msg) {
     if (kDebugMode && debug) debugPrint(msg);
   }
 
-  String _codepoints(String s) => s.runes
-      .map((r) => 'U+${r.toRadixString(16).toUpperCase().padLeft(4, '0')}')
-      .join(' ');
-
-  String _visible(String s) => s
-      .replaceAll('\u00A0', '[NBSP]')
-      .replaceAll('\u200F', '[RLM]')
-      .replaceAll('\u200E', '[LRM]')
-      .replaceAll('\u202A', '[LRE]')
-      .replaceAll('\u202B', '[RLE]')
-      .replaceAll('\u202C', '[PDF]')
-      .replaceAll('\u202D', '[LRO]')
-      .replaceAll('\u202E', '[RLO]')
-      .replaceAll('\u2066', '[LRI]')
-      .replaceAll('\u2067', '[RLI]')
-      .replaceAll('\u2068', '[FSI]')
-      .replaceAll('\u2069', '[PDI]');
-
-  // ---------------- Tokenization / classification ----------------
-  List<String> _splitWords(String s) =>
+  // Tokenization helpers
+  List<String> _splitDisplayTokens(String s) =>
       s.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
 
   String _stripBidi(String s) =>
@@ -345,115 +414,47 @@ class _HighlightedText extends StatelessWidget {
 
   bool _containsPua(String s) => s.runes.any((r) => r >= 0xE000 && r <= 0xF8FF);
 
-  String _stripQuranMarksAndHarakat(String s) {
-    return s
-        .replaceAll('\u0670', 'ا')
-        // harakat (WITHOUT \u0670)
-        .replaceAll(RegExp(r'[\u064B-\u065F]'), '')
-        // Quran annotation marks (ۖ ۚ ۗ ۞ etc.)
-        .replaceAll(RegExp(r'[\u06D6-\u06ED\u08D3-\u08FF]'), '')
-        // end of ayah (if present)
-        .replaceAll('\u06DD', '');
-  }
-
-  bool _hasArabicLetter(String s) {
-    // Includes alef wasla (ٱ U+0671) + basic Arabic letters.
-    return RegExp(r'[\u0621-\u064A\u0671]').hasMatch(s);
-  }
-
-  bool _isPlainWordToken(String token) {
-    // A "real word" is any token that contains Arabic letters after removing marks.
-    final t = _stripQuranMarksAndHarakat(token);
-    return _hasArabicLetter(t);
-  }
+  bool _hasArabicLetter(String s) =>
+      RegExp(r'[\u0621-\u064A\u0671]').hasMatch(s);
 
   bool _isDisplayWordToken(String token) {
-    // Display text may be PUA glyph stream; treat PUA sequences as words.
     final t = _stripBidi(token).trim();
     if (t.isEmpty) return false;
     if (_containsPua(t)) return true;
 
-    // Also support normal-unicode Arabic display.
-    final stripped = _stripQuranMarksAndHarakat(t);
-    return _hasArabicLetter(stripped);
-  }
-
-  // ---------------- Matching normalization ----------------
-  String _normalizeForMatch(String s) {
-    // 1) remove Quran marks/harakat that might appear in plain
-    final stripped = _stripQuranMarksAndHarakat(s);
-
-    // 2) normalize your Arabic (alef forms etc.)
-    return ArabicTextProcessor.normalize(stripped)
-      // 3) remove punctuation/non-letters around/inside token for matching
-      ..replaceAll(RegExp(r'[^\u0600-\u06FF0-9]+'), '')
-      // 4) make search equivalence match highlight equivalence:
-      //    taa marbuta vs haa (then "ثمرة" highlights "ثمره")
-      ..replaceAll(RegExp(r'ة$'), 'ه');
+    // Support normal-unicode display too:
+    final norm = ArabicTextProcessor.normalize(t);
+    return norm.isNotEmpty && _hasArabicLetter(norm);
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // ---- 1) Split tokens ----
-    final plainTokens = _splitWords(plainText);
+    // ---- 1) Plain "content words" count must match SearchService's
+    // indexing logic.
+    final plainTokens = ArabicTextProcessor.tokenize(plainText);
 
-    // IMPORTANT: keep original display tokens (don’t strip bidi globally),
-    // but drop tokens that are only bidi markers.
-    final displayTokens = _splitWords(
+    final plainContentWords = <String>[];
+    for (final t in plainTokens) {
+      final n = ArabicTextProcessor.normalize(t);
+      if (n.isEmpty) continue;
+      if (!_hasArabicLetter(n)) continue;
+      plainContentWords.add(t);
+    }
+
+    // ---- 2) Keep original display tokens for rendering (PUA+RLM ordering),
+    // but remove tokens that become empty after stripping bidi.
+    final displayTokens = _splitDisplayTokens(
       displayText,
     ).where((t) => _stripBidi(t).trim().isNotEmpty).toList();
 
-    // ---- 2) Filter plain to content-words only (skip ۞ ۖ ۚ ۗ etc) ----
-    final plainContentWords = <String>[];
-    for (int i = 0; i < plainTokens.length; i++) {
-      final t = plainTokens[i];
-      final isWord = _isPlainWordToken(t);
-      if (!isWord) {
-        _d('PLAIN SKIP i=$i "${_visible(t)}" cps=${_codepoints(t)}');
-      } else {
-        plainContentWords.add(t);
-      }
-    }
-
-    // ---- 3) Normalize query tokens the SAME way highlight does ----
-    // (Union: use passed queryTokens + split(query) as a fallback)
-    final rawQueryTokens = <String>{...queryTokens, ..._splitWords(query)};
-
-    final normalizedQueryTokens = rawQueryTokens
-        .map(_normalizeForMatch)
-        .where((t) => t.isNotEmpty)
-        .toSet();
-
-    bool matches(String normalizedPlainWord) {
-      if (normalizedPlainWord.isEmpty || normalizedQueryTokens.isEmpty) {
-        return false;
-      }
-
-      if (highlightExactMatchOnly) {
-        return normalizedQueryTokens.contains(normalizedPlainWord);
-      } else {
-        for (final q in normalizedQueryTokens) {
-          if (normalizedPlainWord.startsWith(q)) return true;
-        }
-        return false;
-      }
-    }
-
-    _d('QUERY normalized tokens = $normalizedQueryTokens');
-
-    // ---- 4) Build display->plain mapping (consume only display "word tokens")
+    // ---- 3) Build display->plain mapping (consume only display word tokens)
     final displayToPlain = <int?>[];
     int p = 0;
-    int displayWordCount = 0;
 
-    for (int d = 0; d < displayTokens.length; d++) {
-      final dt = displayTokens[d];
-      final isWord = _isDisplayWordToken(dt);
-
-      if (isWord) {
-        displayWordCount++;
+    for (final dt in displayTokens) {
+      if (_isDisplayWordToken(dt)) {
         displayToPlain.add(p < plainContentWords.length ? p : null);
         p++;
       } else {
@@ -461,32 +462,14 @@ class _HighlightedText extends StatelessWidget {
       }
     }
 
-    _d(
-      'COUNTS: plainTokens=${plainTokens.length}, '
-      'plainContentWords=${plainContentWords.length}, '
-      'displayTokens=${displayTokens.length}, '
-      'displayWordCount=$displayWordCount',
-    );
-
-    if (displayWordCount != plainContentWords.length) {
-      _d(
-        'WARNING: word-count mismatch -> alignment may drift.\n'
-        '  displayWordCount=$displayWordCount vs'
-        ' plainContentWords=${plainContentWords.length}',
+    // ---- 4) Find first match for slicing
+    int firstMatchPlainIndex = -1;
+    if (matchedPlainWordIndexes.isNotEmpty) {
+      firstMatchPlainIndex = matchedPlainWordIndexes.reduce(
+        (a, b) => a < b ? a : b,
       );
     }
 
-    // ---- 5) Find first match in PLAIN content words ----
-    int firstMatchPlainIndex = -1;
-    for (int i = 0; i < plainContentWords.length; i++) {
-      final norm = _normalizeForMatch(plainContentWords[i]);
-      if (matches(norm)) {
-        firstMatchPlainIndex = i;
-        break;
-      }
-    }
-
-    // Convert to DISPLAY index
     int firstMatchDisplayIndex = -1;
     if (firstMatchPlainIndex != -1) {
       firstMatchDisplayIndex = displayToPlain.indexWhere(
@@ -494,24 +477,8 @@ class _HighlightedText extends StatelessWidget {
       );
     }
 
-    _d(
-      'MATCH: firstMatchPlainIndex=$firstMatchPlainIndex '
-      '-> firstMatchDisplayIndex=$firstMatchDisplayIndex',
-    );
-
-    if (firstMatchPlainIndex == -1) {
-      // Very useful when you see results but no highlight:
-      // it means your normalization still differs from search.
-      _d(
-        'NO MATCH FOUND. Sample normalized plain words (first 25): '
-        '${plainContentWords.take(25).map(_normalizeForMatch).toList()}',
-      );
-    }
-
-    // ---- 6) Decide slicing based on DISPLAY indices (since we render display)
     int startDisplayIndex = 0;
     bool showStartEllipsis = false;
-
     if (firstMatchDisplayIndex > 10) {
       startDisplayIndex = firstMatchDisplayIndex - 3;
       showStartEllipsis = true;
@@ -520,7 +487,7 @@ class _HighlightedText extends StatelessWidget {
     final slicedDisplayTokens = displayTokens.sublist(startDisplayIndex);
     final slicedMap = displayToPlain.sublist(startDisplayIndex);
 
-    // Keep old behavior but safer: only trim trailing non-word display tokens.
+    // Optional trimming similar to your old behavior:
     if (verseFontFamily == FontFamily.hafs) {
       while (slicedDisplayTokens.isNotEmpty &&
           !_isDisplayWordToken(slicedDisplayTokens.last)) {
@@ -530,6 +497,11 @@ class _HighlightedText extends StatelessWidget {
     }
 
     final isWarsh = verseFontFamily == FontFamily.warsh;
+
+    _d(
+      'plainContentWords=${plainContentWords.length}'
+      ' displayTokens=${displayTokens.length}',
+    );
 
     return RichText(
       textDirection: TextDirection.rtl,
@@ -548,17 +520,15 @@ class _HighlightedText extends StatelessWidget {
           if (showStartEllipsis)
             TextSpan(
               text: '... ',
-              style: TextStyle(color: baseColor.withOpacity(0.8)),
+              style: TextStyle(color: baseColor.applyOpacity(0.8)),
             ),
           ...List.generate(slicedDisplayTokens.length, (i) {
             final displayTok = slicedDisplayTokens[i];
             final plainIndex = slicedMap[i];
 
-            bool isMatch = false;
-            if (plainIndex != null && plainIndex < plainContentWords.length) {
-              final norm = _normalizeForMatch(plainContentWords[plainIndex]);
-              isMatch = matches(norm);
-            }
+            final isMatch =
+                plainIndex != null &&
+                matchedPlainWordIndexes.contains(plainIndex);
 
             return TextSpan(
               text: '$displayTok ',

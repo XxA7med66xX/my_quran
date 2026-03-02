@@ -319,3 +319,48 @@ enum HizbDisplay {
   bool get isReplaceJuz => this == replaceJuz || this == replaceJuzWithQuarter;
   bool get withQuarter => this == replaceJuzWithQuarter;
 }
+
+enum SearchMatchMode {
+  auto,
+  exact,
+  prefix,
+  contains,
+  flexible;
+
+  bool get isAuto => this == auto;
+}
+
+enum SearchOperator { and, or }
+
+class SearchHit {
+  const SearchHit({
+    required this.surah,
+    required this.verse,
+    required this.matchedWordIndexes,
+  });
+
+  final int surah;
+  final int verse;
+
+  /// Indexes into the verse "content words"
+  ///  (after filtering marks-only tokens).
+  final List<int> matchedWordIndexes;
+}
+
+class SearchResponse {
+  const SearchResponse({
+    required this.isTruncated,
+    required this.totalHits,
+    required this.hits,
+    required this.effectiveMode,
+    required this.normalizedQueryTokens,
+    required this.operatorUsed,
+  });
+
+  final List<SearchHit> hits;
+  final SearchMatchMode effectiveMode;
+  final Set<String> normalizedQueryTokens;
+  final SearchOperator operatorUsed;
+  final int totalHits;
+  final bool isTruncated;
+}

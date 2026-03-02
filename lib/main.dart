@@ -30,6 +30,8 @@ Future<void> main() async {
   await Quran.instance.initialize(fontFamily: settingsController.fontFamily);
   await FontSizeController().initialize();
 
+  SearchService.plainVerseProvider = Quran.instance.getVerseInPlainText;
+
   final lastPosition = await ReadingPositionService.loadPosition();
   debugPrint('📱 Last Position: $lastPosition');
 

@@ -8,10 +8,10 @@ import 'package:my_quran/app/search/processor.dart';
 /// Generates search indexes for multiple narrations.
 /// Run with: dart run search_index_generator.dart
 void main() async {
-  // 1. Generate HAFS Index (Combines Uthmani + Simple text for better matching)
+  // 1. Generate HAFS Index
   await _generateIndexForNarration(
     label: 'HAFS',
-    inputFiles: ['assets/quran.json', 'lib/tool/quran_simple_clean.json'],
+    inputFiles: ['assets/quran.json'],
     outputFile: 'assets/search_index_hafs.json',
   );
 
@@ -100,64 +100,16 @@ void _processVerseText(
   int verseId,
   Map<String, Set<int>> invertedIndex,
 ) {
-  // Use the tokenizer (handles punctuation removal)
+  // inside _processVerseText
   final tokens = ArabicTextProcessor.tokenize(text);
 
   for (final token in tokens) {
-    final Set<String> variantsToNormalize = {};
+    final normalized = ArabicTextProcessor.normalize(token);
+    if (normalized.isEmpty) continue;
 
-    // Logic: Handle Dagger Alef variations (Keeping your existing logic)
-    if (token.contains('\u0670')) {
-      variantsToNormalize.add(token.replaceAll('\u0670', 'ا'));
-      variantsToNormalize.add(token.replaceAll('\u0670', ''));
-    } else {
-      variantsToNormalize.add(token);
-    }
-
-    // Normalize and index all generated variants
-    for (final variant in variantsToNormalize) {
-      final normalized = _normalizeBase(variant);
-      if (normalized.isNotEmpty) {
-        // Validation: Ensure we only index actual Arabic words
-        // This regex allows Arabic letters + Hamza. Excludes numbers/symbols.
-        if (RegExp(r'[\u0621-\u064A]').hasMatch(normalized)) {
-          invertedIndex.putIfAbsent(normalized, () => <int>{});
-          invertedIndex[normalized]!.add(verseId);
-        }
-      }
+    if (RegExp(r'[\u0621-\u064A]').hasMatch(normalized)) {
+      invertedIndex.putIfAbsent(normalized, () => <int>{});
+      invertedIndex[normalized]!.add(verseId);
     }
   }
-}
-
-String _normalizeBase(String text) {
-  // 1. Remove PUA Symbols (Crucial for Warsh!)
-  // Removes End of Ayah marks or custom font glyphs (E000-F8FF)
-  String normalized = text.replaceAll(RegExp(r'[\uE000-\uF8FF]'), '');
-
-  // 2. Remove punctuation and symbols
-  normalized = normalized.replaceAll(
-    RegExp(r'[\p{P}\p{S}\p{N}\-\(\)\[\]\{\}]+', unicode: true),
-    '',
-  );
-
-  // 3. Remove all diacritics
-  normalized = normalized.replaceAll(
-    RegExp(r'[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]'),
-    '',
-  );
-
-  // 4. Character Normalization
-  normalized = normalized.replaceAll(RegExp('[أإآٱ]'), 'ا');
-  normalized = normalized.replaceAll('ة', 'ه');
-  normalized = normalized.replaceAll('ى', 'ي');
-
-  // Hamza Normalization (Your Logic)
-  normalized = normalized.replaceAll('ؤ', 'و');
-  normalized = normalized.replaceAll('ئ', 'ء');
-  normalized = normalized.replaceAll('ء', ''); // Strip Hamza on line?
-
-  // Tatweel
-  normalized = normalized.replaceAll('ـ', '');
-
-  return normalized.trim();
 }
