@@ -801,11 +801,9 @@ class _SurahHeader extends StatelessWidget {
         style: TextStyle(
           color: context.colorScheme.onSecondaryContainer,
           fontWeight: FontWeight.w600,
-          fontFamily: fontFamily != FontFamily.warsh
-              ? FontFamily.rustam.name
-              : fontFamily.name,
-
+          fontFamily: FontFamily.arabicNumbersFontFamily.name,
           letterSpacing: 0,
+          fontSize: fontSize - 6,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -815,18 +813,17 @@ class _SurahHeader extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 const Text('ترتيبها'),
-                Text(
-                  '(${getArabicNumber(surah.surahNumber)})',
-                  style: TextStyle(
-                    fontFamily: FontFamily.arabicNumbersFontFamily.name,
-                  ),
-                ),
+                Text('(${getArabicNumber(surah.surahNumber)})'),
               ],
             ),
             Text(
               'سورة ${Quran.instance.getSurahNameArabic(surah.surahNumber)}',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: fontSize, height: 1.2),
+              style: TextStyle(
+                fontSize: fontSize,
+                height: 1.2,
+                fontFamily: fontFamily.name,
+              ),
             ),
             Wrap(
               spacing: 5,
@@ -835,9 +832,6 @@ class _SurahHeader extends StatelessWidget {
                 const Text('آياتها'),
                 Text(
                   '(${getArabicNumber(Quran.instance.getVerseCount(surah.surahNumber))})',
-                  style: TextStyle(
-                    fontFamily: FontFamily.arabicNumbersFontFamily.name,
-                  ),
                 ),
               ],
             ),
