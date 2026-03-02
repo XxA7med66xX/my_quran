@@ -16,7 +16,7 @@ class SettingsController extends ChangeNotifier {
   FontFamily _fontFamily = FontFamily.rustam;
   FontWeight _fontWeight = FontWeight.w500;
   AppTheme _appTheme = AppTheme.myQuran;
-  bool _isHorizontalScrolling = false;
+  bool _isHorizontalScrolling = true;
   bool _keepScreenOn = true;
   TextAlignOption _textAlign = TextAlignOption.justify;
   bool _supportsDynamicColor = false;
