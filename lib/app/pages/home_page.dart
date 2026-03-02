@@ -801,7 +801,7 @@ class _SurahHeader extends StatelessWidget {
       ),
       child: DefaultTextStyle(
         style: TextStyle(
-          color: context.colorScheme.onSecondaryContainer,
+          color: context.colorScheme.onSurface,
           fontWeight: FontWeight.w600,
           fontFamily: FontFamily.arabicNumbersFontFamily.name,
           letterSpacing: 0,
@@ -827,6 +827,7 @@ class _SurahHeader extends StatelessWidget {
                 fontSize: fontSize,
                 height: 1.2,
                 fontFamily: fontFamily.name,
+                color: context.colorScheme.primary,
               ),
             ),
             Flexible(
