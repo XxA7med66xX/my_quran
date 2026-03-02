@@ -1,6 +1,7 @@
 // ignore_for_file: lines_longer_than_80_chars (will refactor soon)
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -310,7 +311,8 @@ class HomePageState extends State<HomePage> with WidgetsBindingObserver {
     const double infoHeaderHeight = 35;
 
     final newIsLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
+        MediaQuery.of(context).orientation == Orientation.landscape &&
+        (Platform.isAndroid || Platform.isIOS);
     if (newIsLandscape != _isLandscape) {
       _isLandscape = newIsLandscape;
       _updateSystemUI();
