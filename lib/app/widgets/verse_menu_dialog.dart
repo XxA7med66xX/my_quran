@@ -108,12 +108,9 @@ class _VerseMenuDialogState extends State<VerseMenuDialog> {
               borderRadius: BorderRadius.circular(16),
               child: Scaffold(
                 backgroundColor: colorScheme.surface,
-
-                // Portrait keeps bottom bar; landscape moves actions to the side.
                 bottomNavigationBar: isLandscape
                     ? null
                     : _buildBottomActionsBar(context),
-
                 body: isLandscape
                     ? _buildLandscapeBody(context)
                     : _buildPortraitBody(context),
@@ -149,7 +146,6 @@ class _VerseMenuDialogState extends State<VerseMenuDialog> {
               ),
               const VerticalDivider(width: 1),
               Expanded(
-                flex: 1,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                   child: SingleChildScrollView(

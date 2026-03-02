@@ -59,7 +59,8 @@ class DataMigrationService {
     // Optional logging
     // ignore: avoid_print
     print(
-      '✅ Migration complete: moved ${newNotes.length} bookmark notes to notes service '
+      '✅ Migration complete: moved ${newNotes.length}'
+      ' bookmark notes to notes service '
       '(bookmarksChanged=$changedBookmarks)',
     );
   }
