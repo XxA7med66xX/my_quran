@@ -1,3 +1,16 @@
+### 1.7.1
+
+- FIX: Fixed dynamic color theming using device's accent color as seed for proper Material 3 color scheme generation.
+
+### 1.7.0
+
+- FEAT: Improved the Settings sheet.
+- FEAT: Added Sepia theme.
+- FEAT: Added backup export/import for bookmarks and notes.
+- FEAT: Notes are now independent from bookmarks and linked directly to verses.
+- FEAT: Added dedicated Warsh page metadata.
+- FIX: Fixed an issue where pages 488 - 489 is blank in Warsh narration.
+
 ### 1.6.0
 
 - FIX: Fixed incorrect highlighting for exact-match words in search results.
