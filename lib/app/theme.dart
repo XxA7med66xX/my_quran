@@ -85,10 +85,10 @@ ThemeData _buildDynamicLight(ColorScheme? deviceScheme) {
 ThemeData _buildDynamicDark(ColorScheme? deviceScheme) {
   final seedColor = deviceScheme?.primary ?? Colors.blue;
   final colorScheme = ColorScheme.fromSeed(
+    brightness: Brightness.dark,
     seedColor: seedColor,
     secondary: deviceScheme?.secondary,
     tertiary: deviceScheme?.tertiary,
-    brightness: Brightness.dark,
   );
   return ThemeData(
     useMaterial3: true,
