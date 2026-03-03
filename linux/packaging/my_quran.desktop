@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=My Quran
+GenericName=Holy Quran
+GenericName[ar]=القرآن الكريم
+Comment=A lightweight, offline Quran with search
+Comment[ar]=تطبيق قرآن كريم خفيف، يعمل بدون إنترنت ويدعم البحث
+Exec=my_quran
+Icon=my_quran
+Type=Application
+Categories=Education;
+Keywords=Islam;Quran;Muslim;
+
