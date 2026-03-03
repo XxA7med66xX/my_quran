@@ -1,6 +1,9 @@
 ### 1.7.1
 
 - FIX: Fixed dynamic color theming using device's accent color as seed for proper Material 3 color scheme generation.
+- FEAT: add search match modes, improve search index and fix highlighting.
+- FIX: dynamic color showing same surface for all elements (thanks to @Tid0lla).
+- CI/CD: add support for building and publishing x86_64 Linux executables (thanks to @XxA7med66xX).
 
 ### 1.7.0
 
