@@ -231,10 +231,74 @@ jobs:
                   path: |
                     *linux-x86_64.tar.gz
                     *linux-x86_64.AppImage
-                    
+
+    build_windows_x86_64:
+        name: Build Release windows
+        needs: [get-version-info]
+        runs-on: windows-2022
+        env:
+          WORKING_DIR: build/windows/x64/runner/Release/
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Flutter
+              uses: subosito/flutter-action@v2
+              with:
+                  channel: "stable"
+                  flutter-version-file: pubspec.yaml
+                  cache: true
+            
+            - name: Install dependencies
+              run: flutter pub get
+
+            - name: Get version from pubspec.yaml
+              shell: pwsh
+              run: |
+                $versionLine = Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)'
+                if ($versionLine -match '([0-9]+\.[0-9]+\.[0-9]+)') {
+                    $VERSION = $Matches[1]
+                    echo "VERSION=$VERSION" >> $env:GITHUB_ENV
+                } else {
+                    Write-Error "Version not found in pubspec.yaml"
+                }  
+
+            - name: Build Windows App
+              env:
+                APP_VERSION: ${{ needs.get-version-info.outputs.version }}
+                APP_BUILD: ${{ needs.get-version-info.outputs.build_number }}
+              run: |
+                flutter build windows --release `
+                  --dart-define=APP_VERSION="${{ env.APP_VERSION }}" `
+                  --dart-define=APP_BUILD="${{ env.APP_BUILD }}"
+            
+            # See https://docs.flutter.dev/platform-integration/windows/building#building-your-own-zip-file-for-windows      
+            - name: Add runtime files
+              run: |
+                Copy-Item "C:\Windows\System32\msvcp140.dll" "${{env.WORKING_DIR}}"
+                Copy-Item "C:\Windows\System32\vcruntime140.dll" "${{env.WORKING_DIR}}"
+                Copy-Item "C:\Windows\System32\vcruntime140_1.dll" "${{env.WORKING_DIR}}"
+            
+            - name: Add app icon
+              run: Copy-Item assets/icon-cricle.png ${{env.WORKING_DIR}}/my_quran.png
+
+            - name: Create portable version
+              run: Compress-Archive -Path "${{env.WORKING_DIR}}*" -DestinationPath "MyQuran-$env:VERSION-windows-x86_64.zip"
+            
+            - name: Create app installer (setup)
+              run: iscc /DMyAppVersion=$env:VERSION windows/packaging/inno-setup.iss
+              
+            - name: Upload Windows Artifacts
+              uses: actions/upload-artifact@v7
+              with:
+                  name: windowsBuilds_x64_86
+                  path: |
+                    *windows-x86_64.zip
+                    *windows-x86_64-setup.exe  
     release:
         name: Publish Release
-        needs: [build_android, build_linux_x86_64, get-version-info]
+        needs: [build_android, build_linux_x86_64, build_windows_x86_64, get-version-info]
         runs-on: ubuntu-latest
 
         steps:
@@ -251,6 +315,11 @@ jobs:
                   name: linuxBuilds_x64_86
                   path: artifacts
 
+            - uses: actions/download-artifact@v7
+              with:
+                  name: windowsBuilds_x64_86
+                  path: artifacts      
+
             - name: Create GitHub Release
               uses: ncipollo/release-action@v1
               with:
@@ -261,7 +330,9 @@ jobs:
                   artifacts: >
                     artifacts/*.apk,
                     artifacts/*.tar.gz,
-                    artifacts/*.AppImage
+                    artifacts/*.AppImage,
+                    artifacts/*.zip,
+                    artifacts/*.exe
                   token: ${{ secrets.GITHUB_TOKEN }}
                  
     build_web_artifact:
